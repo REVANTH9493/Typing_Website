@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="kids">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TypeBuddy - Anyone Can Learn Typing!</title>
+  <meta name="description" content="An interactive, gamified typing tutor designed for kids and adults. Sourced from standard typing textbooks.">
+  <link rel="stylesheet" href="styles.css?v=1.0.2">
+</head>
+<body>
+
+  <!-- Header Section -->
+  <header>
+    <div class="logo-container" data-link="welcome">
+      <span class="logo-icon">🐒</span>
+      <span class="logo-text">TypeBuddy</span>
+    </div>
+    
+    <div class="nav-controls">
+      <!-- Setting controls -->
+      <div class="flex-row-center glass-card" style="padding: 6px 16px; border-radius: 20px; gap: 14px; box-shadow: none;">
+        <label class="flex-row-center" style="cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+          🔊 Sound: <input type="checkbox" id="setting-sound" checked style="accent-color: #8b5cf6;">
+        </label>
+        <label class="flex-row-center" style="cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+          🗣️ Voice Assistant: <input type="checkbox" id="setting-voice" checked style="accent-color: #8b5cf6;">
+        </label>
+      </div>
+
+      <button class="btn btn-secondary" data-link="dashboard">🗺️ Lesson Map</button>
+      <button class="btn btn-secondary" data-link="games">🎮 Games</button>
+      <button class="btn btn-secondary" data-link="stats">📊 Stats</button>
+      
+      <!-- Certificate Button (Visible only on completion) -->
+      <button id="cert-trigger-btn" class="btn btn-primary" data-link="stats" style="display: none; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-color: #d97706; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);">
+        🏆 Certificate!
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Views Container -->
+  <main>
+
+    <!-- 1. WELCOME VIEW -->
+    <section id="welcome-view" class="view-section active">
+      <div class="welcome-container">
+        <div class="welcome-info">
+          <h1>Learn to Type <br>the Fun Way!</h1>
+          <p>Whether you are 5 years old or 100, TypeBuddy uses visual guides, sounds, and interactive monkey helpers to make touch-typing as easy as playing a game!</p>
+          <button id="start-learning-btn" class="btn btn-primary" style="padding: 16px 36px; font-size: 1.2rem; border-radius: 30px;">
+            Let's Start! 🚀
+          </button>
+        </div>
+        
+        <div class="mode-selector">
+          <h2>Choose Your Style:</h2>
+          
+          <div id="mode-kids-card" class="mode-card selected">
+            <div class="mode-icon">🎈</div>
+            <div class="mode-details">
+              <h3>Kids Playroom Mode</h3>
+              <p>Bubbles, star rewards, voice helpers, and a cute monkey mascot who speaks to you!</p>
+            </div>
+          </div>
+          
+          <div id="mode-focus-card" class="mode-card">
+            <div class="mode-icon">🎯</div>
+            <div class="mode-details">
+              <h3>Focus Suite Mode</h3>
+              <p>Minimalist dark design with typing statistics tracking and realistic keyboard clicking sounds.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. DASHBOARD / MAP VIEW -->
+    <section id="dashboard-view" class="view-section">
+      <div class="dashboard-header">
+        <div>
+          <h2>Your Typing Adventure</h2>
+          <p style="color: var(--text-muted)">Unlock new lessons as you complete exercises!</p>
+        </div>
+        <div class="star-counter">
+          <span>⭐</span> <span id="dashboard-star-value">0</span> Stars
+        </div>
+      </div>
+      
+      <div class="dashboard-map" id="dashboard-levels-container">
+        <!-- JS inserts levels and locked/unlocked cards here -->
+      </div>
+    </section>
+
+    <!-- 3. TUTOR VIEW -->
+    <section id="tutor-view" class="view-section">
+      <div class="tutor-layout">
+        
+        <div class="tutor-main">
+          <!-- Stats header panel -->
+          <div class="stats-header-bar">
+            <div class="stat-item">
+              <div class="stat-val" id="stat-wpm">0</div>
+              <div class="stat-lbl">Speed (WPM)</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val" id="stat-accuracy">100%</div>
+              <div class="stat-lbl">Accuracy</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val" id="stat-errors">0</div>
+              <div class="stat-lbl">Mistakes</div>
+            </div>
+          </div>
+          
+          <!-- Typing interface -->
+          <div class="typing-box-container">
+            <div id="typing-text-block" class="typing-text">
+              <!-- JS renders letters to type here -->
+            </div>
+          </div>
+          
+          <!-- Hands & Keyboard visualizations -->
+          <div style="display: grid; grid-template-columns: 1.8fr 1fr; gap: 20px; align-items: start;">
+            <!-- Keyboard -->
+            <div class="keyboard-container">
+              <!-- Keyboard Row 1 -->
+              <div class="keyboard-row">
+                <div class="key key-L5" id="key-1">1</div>
+                <div class="key key-L4" id="key-2">2</div>
+                <div class="key key-L3" id="key-3">3</div>
+                <div class="key key-L2" id="key-4">4</div>
+                <div class="key key-L2" id="key-5">5</div>
+                <div class="key key-R2" id="key-6">6</div>
+                <div class="key key-R2" id="key-7">7</div>
+                <div class="key key-R3" id="key-8">8</div>
+                <div class="key key-R4" id="key-9">9</div>
+                <div class="key key-R5" id="key-0">0</div>
+              </div>
+              <!-- Keyboard Row 2 -->
+              <div class="keyboard-row">
+                <div class="key key-L5" id="key-q">Q</div>
+                <div class="key key-L4" id="key-w">W</div>
+                <div class="key key-L3" id="key-e">E</div>
+                <div class="key key-L2" id="key-r">R</div>
+                <div class="key key-L2" id="key-t">T</div>
+                <div class="key key-R2" id="key-y">Y</div>
+                <div class="key key-R2" id="key-u">U</div>
+                <div class="key key-R3" id="key-i">I</div>
+                <div class="key key-R4" id="key-o">O</div>
+                <div class="key key-R5" id="key-p">P</div>
+              </div>
+              <!-- Keyboard Row 3 -->
+              <div class="keyboard-row">
+                <div class="key key-L5" id="key-a">A</div>
+                <div class="key key-L4" id="key-s">S</div>
+                <div class="key key-L3" id="key-d">D</div>
+                <div class="key key-L2" id="key-f">F</div>
+                <div class="key key-L2" id="key-g">G</div>
+                <div class="key key-R2" id="key-h">H</div>
+                <div class="key key-R2" id="key-j">J</div>
+                <div class="key key-R3" id="key-k">K</div>
+                <div class="key key-R4" id="key-l">L</div>
+                <div class="key key-R5" id="key-semicolon">;</div>
+              </div>
+              <!-- Keyboard Row 4 -->
+              <div class="keyboard-row">
+                <div class="key shift key-L5" id="key-shift-left">Shift</div>
+                <div class="key key-L5" id="key-z">Z</div>
+                <div class="key key-L4" id="key-x">X</div>
+                <div class="key key-L3" id="key-c">C</div>
+                <div class="key key-L2" id="key-v">V</div>
+                <div class="key key-L2" id="key-b">B</div>
+                <div class="key key-R2" id="key-n">N</div>
+                <div class="key key-R2" id="key-m">M</div>
+                <div class="key key-R3" id="key-comma">,</div>
+                <div class="key key-R4" id="key-period">.</div>
+                <div class="key key-R5" id="key-slash">/</div>
+                <div class="key shift key-R5" id="key-shift-right">Shift</div>
+              </div>
+              <!-- Keyboard Row 5 -->
+              <div class="keyboard-row">
+                <div class="key space key-LT" id="key-space">Space Bar</div>
+              </div>
+            </div>
+            
+            <!-- SVG Hands visualizer -->
+            <div class="hands-container">
+              <!-- Left Hand -->
+              <svg class="hand-svg" viewBox="0 0 100 100">
+                <!-- Wrist & Palm -->
+                <path d="M 40 95 C 40 80, 20 70, 22 50 C 23 45, 25 45, 30 50 L 30 95" />
+                <!-- Pinky L5 -->
+                <path class="finger finger-L5" d="M 22 50 C 15 42, 10 32, 13 28 C 16 24, 21 34, 26 42" />
+                <!-- Ring L4 -->
+                <path class="finger finger-L4" d="M 26 42 C 20 30, 18 16, 23 12 C 27 8, 30 22, 32 38" />
+                <!-- Middle L3 -->
+                <path class="finger finger-L3" d="M 32 38 C 30 25, 29 8, 34 5 C 39 2, 40 20, 39 37" />
+                <!-- Index L2 -->
+                <path class="finger finger-L2" d="M 39 37 C 42 24, 46 10, 51 9 C 55 8, 52 24, 47 40" />
+                <!-- Thumb LT -->
+                <path class="finger finger-LT" d="M 47 40 C 53 45, 63 45, 64 50 C 65 54, 55 58, 45 52" />
+              </svg>
+              <!-- Right Hand -->
+              <svg class="hand-svg" viewBox="0 0 100 100">
+                <!-- Wrist & Palm -->
+                <path d="M 60 95 C 60 80, 80 70, 78 50 C 77 45, 75 45, 70 50 L 70 95" />
+                <!-- Thumb RT -->
+                <path class="finger finger-RT" d="M 53 52 C 45 58, 35 54, 36 50 C 37 45, 47 45, 53 40" />
+                <!-- Index R2 -->
+                <path class="finger finger-R2" d="M 53 40 C 48 24, 45 8, 49 9 C 54 10, 58 24, 61 37" />
+                <!-- Middle R3 -->
+                <path class="finger finger-R3" d="M 61 37 C 60 20, 61 2, 66 5 C 71 8, 70 25, 68 38" />
+                <!-- Ring R4 -->
+                <path class="finger finger-R4" d="M 68 38 C 70 22, 73 8, 77 12 C 82 16, 80 30, 74 42" />
+                <!-- Pinky R5 -->
+                <path class="finger finger-R5" d="M 74 42 C 79 34, 84 24, 87 28 C 90 32, 85 42, 78 50" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right side mascot panel -->
+        <div class="glass-card mascot-card">
+          <div class="mascot-avatar">
+            <!-- Animated Inline SVG Monkey Mascot Koko -->
+            <svg viewBox="0 0 100 100" width="100%" height="100%">
+              <!-- Head background -->
+              <circle cx="50" cy="50" r="40" fill="#a76f44" />
+              <!-- Ears -->
+              <circle cx="12" cy="50" r="14" fill="#a76f44" />
+              <circle cx="12" cy="50" r="9" fill="#fbcfe8" />
+              <circle cx="88" cy="50" r="14" fill="#a76f44" />
+              <circle cx="88" cy="50" r="9" fill="#fbcfe8" />
+              <!-- Face Mask -->
+              <path d="M 20 50 C 20 30, 50 32, 50 42 C 50 32, 80 30, 80 50 C 80 70, 50 78, 50 78 C 50 78, 20 70, 20 50 Z" fill="#f3d4b8" />
+              <!-- Eyes -->
+              <ellipse cx="38" cy="48" rx="8" ry="10" fill="white" />
+              <circle id="mascot-eye-l" class="mascot-eye" cx="38" cy="48" r="4" fill="#1e293b" />
+              <ellipse cx="62" cy="48" rx="8" ry="10" fill="white" />
+              <circle id="mascot-eye-r" class="mascot-eye" cx="62" cy="48" r="4" fill="#1e293b" />
+              <!-- Cheeks -->
+              <circle cx="28" cy="58" r="4" fill="#fb7185" opacity="0.6" />
+              <circle cx="72" cy="58" r="4" fill="#fb7185" opacity="0.6" />
+              <!-- Mouth -->
+              <path id="mascot-mouth" d="M 40 65 Q 50 75 60 65" fill="none" stroke="#6b21a8" stroke-width="3.5" stroke-linecap="round" />
+            </svg>
+          </div>
+          
+          <div class="mascot-bubble" id="mascot-speech-bubble">
+            Loading...
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 4. GAMES VIEW -->
+    <section id="games-view" class="view-section">
+      <div class="games-layout">
+        <div class="text-center">
+          <h2>TypeBuddy Arcade</h2>
+          <p style="color: var(--text-muted)">Select a game and test your keyboard speed while having fun!</p>
+        </div>
+        
+        <!-- Game options setup -->
+        <div class="game-setup" id="game-setup-grid">
+          <div class="glass-card game-card" id="game-card-balloon">
+            <span class="game-card-icon">🎈</span>
+            <h3>Balloon Pop</h3>
+            <p>Balloons with letters will float up from the bottom. Type the correct keys to pop them before they fly away! Sourced from active letters.</p>
+            <button class="btn btn-primary mt-4">Start Game 🕹️</button>
+          </div>
+        </div>
+        
+        <!-- Game Canvas Screen -->
+        <div class="game-arena" id="game-arena-block">
+          <!-- Game elements injected here dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. STATS VIEW -->
+    <section id="stats-view" class="view-section">
+      <div class="glass-card" style="max-width: 600px; margin: 0 auto;">
+        <h2 class="text-center mb-4">Your Typing Progress</h2>
+        
+        <div class="stats-grid">
+          <div class="stats-card">
+            <div class="stats-card-val" id="stats-lessons-done">0 / 0</div>
+            <div class="stats-card-lbl">Completed Lessons</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-val" id="stats-total-stars">0</div>
+            <div class="stats-card-lbl">Total Stars ⭐</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-val" id="stats-balloon-highscore">0</div>
+            <div class="stats-card-lbl">Balloon Game Highscore</div>
+          </div>
+        </div>
+        
+        <div style="border-top: 1px solid var(--card-border); padding-top: 24px;">
+          <h3 class="mb-4">Print Your Typing Champion Certificate!</h3>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px;">Have you completed all lessons? Type in your name below to download your printable TypeBuddy Certificate!</p>
+          
+          <div style="display: flex; gap: 12px;">
+            <input type="text" id="cert-name-input" placeholder="Type your name..." class="glass-card" style="flex: 1; padding: 12px 18px; border-radius: 12px; box-shadow: none; font-size: 1rem; border: 1px solid var(--key-border);">
+            <button id="cert-show-btn" class="btn btn-primary">Create Certificate 🏆</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. CERTIFICATE VIEW -->
+    <section id="certificate-view" class="view-section">
+      <div class="certificate-container">
+        
+        <div class="certificate-paper">
+          <div class="cert-header">CERTIFICATE OF EXCELLENCE</div>
+          <div class="cert-sub">This is proudly awarded to</div>
+          <div class="cert-name" id="certificate-print-name">Young Typist</div>
+          <div class="cert-body">for successfully mastering the keyboard, learning proper touch-typing fingers alignment, and earning <strong style="color: #d97706"><span id="certificate-star-count">0</span> stars</strong> on the TypeBuddy Typing Course!</div>
+          <div class="cert-badge">🎖️</div>
+          <div class="cert-footer">
+            <div>Signed: <strong>Koko the Monkey</strong></div>
+            <div>Date: <strong id="certificate-date">June 2026</strong></div>
+          </div>
+        </div>
+        
+        <div class="flex-row-center cert-btn-group">
+          <button id="print-certificate-btn" class="btn btn-primary" style="padding: 12px 28px;">Print/Download Certificate 🖨️</button>
+          <button class="btn btn-secondary" data-link="stats">Back to Stats</button>
+        </div>
+        
+      </div>
+    </section>
+
+  </main>
+
+  <!-- COMPLETION MODAL OVERLAY -->
+  <div class="game-arena" id="complete-overlay-view" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center;">
+    <div class="glass-card text-center" style="width: 90%; max-width: 460px; padding: 40px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+      <h2 style="font-size: 2.2rem; color: var(--text-main)" id="complete-lesson-title">Lesson Completed!</h2>
+      
+      <!-- Stars representation -->
+      <div id="complete-stars" class="lesson-stars" style="font-size: 3rem; margin: 10px 0;">
+        ⭐⭐⭐
+      </div>
+      
+      <div class="stats-header-bar" style="width: 100%; border: 1px solid var(--card-border); margin: 10px 0;">
+        <div class="stat-item">
+          <div class="stat-val" id="complete-wpm" style="font-size: 1.5rem">0 WPM</div>
+          <div class="stat-lbl" style="font-size: 0.75rem">Speed</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="complete-accuracy" style="font-size: 1.5rem">100%</div>
+          <div class="stat-lbl" style="font-size: 0.75rem">Accuracy</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="complete-errors" style="font-size: 1.5rem">0</div>
+          <div class="stat-lbl" style="font-size: 0.75rem">Mistakes</div>
+        </div>
+      </div>
+      
+      <button id="complete-next-btn" class="btn btn-primary" style="width: 100%; padding: 14px; justify-content: center; font-size: 1.1rem; border-radius: 20px;">
+        Next Lesson! 🚀
+      </button>
+    </div>
+  </div>
+
+  <!-- Script Declarations -->
+  <script src="lessons.js?v=1.0.2"></script>
+  <script src="app.js?v=1.0.2"></script>
+  <script>
+    // Injects the current dynamic date for certificate automatically on load
+    document.getElementById('certificate-date').textContent = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  </script>
+</body>
+</html>
