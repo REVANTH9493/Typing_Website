@@ -6,6 +6,15 @@
   <title>TypeBuddy - Anyone Can Learn Typing!</title>
   <meta name="description" content="An interactive, gamified typing tutor designed for kids and adults. Sourced from standard typing textbooks.">
   <link rel="stylesheet" href="styles.css?v=1.0.2">
+  <script>
+    // Route protection: redirect to signin.html if no session is stored
+    (function() {
+      const session = localStorage.getItem('typebuddy_user_session');
+      if (!session) {
+        window.location.href = 'signin.html';
+      }
+    })();
+  </script>
 </head>
 <body>
 
@@ -35,6 +44,12 @@
       <button id="cert-trigger-btn" class="btn btn-primary" data-link="stats" style="display: none; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-color: #d97706; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);">
         🏆 Certificate!
       </button>
+
+      <!-- User badge & sign out -->
+      <div id="user-badge" class="flex-row-center glass-card" style="padding: 6px 16px; border-radius: 20px; gap: 10px; box-shadow: none;">
+        <span id="user-display-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">👤 Loading...</span>
+        <button id="signout-btn" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center;" title="Sign Out">🚪</button>
+      </div>
     </div>
   </header>
 
@@ -45,8 +60,8 @@
     <section id="welcome-view" class="view-section active">
       <div class="welcome-container">
         <div class="welcome-info">
-          <h1>Learn to Type <br>the Fun Way!</h1>
-          <p>Whether you are 5 years old or 100, TypeBuddy uses visual guides, sounds, and interactive monkey helpers to make touch-typing as easy as playing a game!</p>
+          <h1 id="welcome-title">Learn to Type <br>the Fun Way!</h1>
+          <p id="welcome-subtitle">Whether you are 5 years old or 100, TypeBuddy uses visual guides, sounds, and interactive monkey helpers to make touch-typing as easy as playing a game!</p>
           <button id="start-learning-btn" class="btn btn-primary" style="padding: 16px 36px; font-size: 1.2rem; border-radius: 30px;">
             Let's Start! 🚀
           </button>
