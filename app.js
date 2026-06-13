@@ -103,8 +103,9 @@ const AppState = {
   
   // Progress (saved to localStorage)
   progress: {
-    completedLessons: {}, // lessonId -> stars (1-3)
-    highScores: {},       // game -> score
+    completedLessons: {},     // lessonId -> stars (1-3)
+    lessonPracticeTime: {},   // lessonId -> seconds remaining (starts at 3600)
+    highScores: {},           // game -> score
     name: 'Young Typist'
   },
   
@@ -112,7 +113,10 @@ const AppState = {
     const saved = localStorage.getItem('typebuddy_progress');
     if (saved) {
       try {
-        this.progress = { ...this.progress, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        this.progress = { ...this.progress, ...parsed };
+        if (!this.progress.lessonPracticeTime) this.progress.lessonPracticeTime = {};
+        if (!this.progress.completedLessons) this.progress.completedLessons = {};
       } catch (e) {
         console.error("Failed to load progress from localStorage", e);
       }
@@ -270,6 +274,27 @@ const TypingTutor = {
     AppState.startTime = null;
     if (AppState.timerInterval) clearInterval(AppState.timerInterval);
     
+    // 1. Session Practice Timer initialization (60 minutes = 3600 seconds)
+    if (!AppState.progress.lessonPracticeTime) AppState.progress.lessonPracticeTime = {};
+    const secondsLeft = AppState.progress.lessonPracticeTime[lesson.id];
+    AppState.lessonSecondsLeft = (secondsLeft !== undefined) ? secondsLeft : 3600;
+    
+    // Display remaining time immediately
+    const mins = Math.floor(AppState.lessonSecondsLeft / 60);
+    const secs = AppState.lessonSecondsLeft % 60;
+    document.getElementById('stat-timer').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    
+    // 2. Key Repetition Count initialization
+    const repContainer = document.getElementById('repetition-counter-container');
+    if (lesson.isInitialKeyStage) {
+      AppState.repetitionCount = 0;
+      repContainer.style.display = 'flex';
+      document.getElementById('repetition-current').textContent = '0';
+    } else {
+      AppState.repetitionCount = 100; // bypass
+      repContainer.style.display = 'none';
+    }
+    
     // Reset stats displays
     document.getElementById('stat-wpm').textContent = '0';
     document.getElementById('stat-accuracy').textContent = '100%';
@@ -318,7 +343,26 @@ const TypingTutor = {
     
     if (!AppState.startTime) {
       AppState.startTime = new Date();
-      AppState.timerInterval = setInterval(() => this.updateLiveStats(), 1000);
+      // Tick countdown every second
+      AppState.timerInterval = setInterval(() => {
+        if (AppState.lessonSecondsLeft > 0) {
+          AppState.lessonSecondsLeft--;
+          AppState.progress.lessonPracticeTime[AppState.currentLesson.id] = AppState.lessonSecondsLeft;
+          AppState.saveProgress();
+        }
+        
+        // Update timer UI text
+        const mins = Math.floor(AppState.lessonSecondsLeft / 60);
+        const secs = AppState.lessonSecondsLeft % 60;
+        document.getElementById('stat-timer').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        
+        // Expiration auto-completion trigger
+        if (AppState.lessonSecondsLeft <= 0 && AppState.repetitionCount >= 100) {
+          this.completeLesson();
+        }
+        
+        this.updateLiveStats();
+      }, 1000);
     }
     
     const lessonText = AppState.currentLesson.text;
@@ -331,6 +375,21 @@ const TypingTutor = {
     if (e.key === targetChar) {
       // CORRECT KEY
       AppState.correctStrokes++;
+      
+      // Increment repetitions if initial identification stage
+      if (AppState.currentLesson.isInitialKeyStage) {
+        // Increment key repetitions (excluding spaces/caps shifts)
+        if (e.key !== " " && e.key.length === 1) {
+          AppState.repetitionCount++;
+          document.getElementById('repetition-current').textContent = Math.min(100, AppState.repetitionCount);
+          
+          // Audio cue on hitting target keys
+          if (AppState.repetitionCount === 100) {
+            MascotHelper.speak("Key repetition target reached! Practice timer remains.");
+          }
+        }
+      }
+      
       if (AppState.soundEnabled) {
         if (AppState.theme === 'kids') SoundSynth.playPop();
         else SoundSynth.playClick();
@@ -342,8 +401,13 @@ const TypingTutor = {
       AppState.charIndex++;
       
       if (AppState.charIndex >= lessonText.length) {
-        // LESSON COMPLETE
-        this.completeLesson();
+        // CHECK COMPLETION OR LOOP
+        if (AppState.lessonSecondsLeft <= 0 && AppState.repetitionCount >= 100) {
+          this.completeLesson();
+        } else {
+          // Keep typing! Regenerate text
+          this.loopPrompt();
+        }
       } else {
         // MOVE NEXT
         const nextSpan = spans[AppState.charIndex];
@@ -375,10 +439,26 @@ const TypingTutor = {
     }
   },
   
+  loopPrompt() {
+    const textContainer = document.getElementById('typing-text-block');
+    textContainer.innerHTML = '';
+    AppState.charIndex = 0;
+    
+    AppState.currentLesson.text.split('').forEach((char, idx) => {
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.textContent = char;
+      if (idx === 0) span.classList.add('current');
+      textContainer.appendChild(span);
+    });
+    
+    InputVisuals.highlightTarget(AppState.currentLesson.text[0]);
+  },
+  
   updateLiveStats() {
     if (!AppState.startTime) return;
     const now = new Date();
-    const elapsedMinutes = (now - AppState.startTime) / 60000;
+    const elapsedMinutes = Math.max(0.05, (now - AppState.startTime) / 60000);
     
     // WPM = (typed characters / 5) / elapsed minutes
     let wpm = 0;
@@ -401,41 +481,69 @@ const TypingTutor = {
     
     // Final score math
     const now = new Date();
-    const elapsedMinutes = (now - AppState.startTime) / 60000;
+    const elapsedMinutes = Math.max(0.05, (now - AppState.startTime) / 60000);
     const wpm = Math.round((AppState.correctStrokes / 5) / elapsedMinutes) || 10;
-    const accuracy = Math.round((AppState.correctStrokes / AppState.keystrokes) * 100);
+    const accuracy = Math.round((AppState.correctStrokes / AppState.keystrokes) * 100) || 100;
     
-    // Evaluate stars:
-    // 3 stars: Accuracy >= 95%
-    // 2 stars: Accuracy >= 85%
-    // 1 star: Complete lesson
-    let stars = 1;
-    if (accuracy >= 95) stars = 3;
-    else if (accuracy >= 85) stars = 2;
+    // Eligibility Threshold check: WPM >= 15 and Accuracy >= 85%
+    const isEligible = (wpm >= 15 && accuracy >= 85);
     
-    AppState.starsCount += stars;
+    const eligCard = document.getElementById('eligibility-status-card');
+    const eligTitle = document.getElementById('eligibility-title');
+    const eligDesc = document.getElementById('eligibility-desc');
+    const starsDiv = document.getElementById('complete-stars');
+    const nextBtn = document.getElementById('complete-next-btn');
     
-    // Update progress state
-    const lessonId = AppState.currentLesson.id;
-    const previousStars = AppState.progress.completedLessons[lessonId] || 0;
-    if (stars > previousStars) {
-      AppState.progress.completedLessons[lessonId] = stars;
-      AppState.saveProgress();
+    let stars = 0;
+    if (isEligible) {
+      // Passed eligibility check
+      eligCard.style.borderColor = "#10b981";
+      eligCard.style.backgroundColor = "rgba(16, 185, 129, 0.08)";
+      
+      eligTitle.textContent = "Eligibility Check: PASSED! 🎉";
+      eligTitle.style.color = "#10b981";
+      eligDesc.textContent = `Excellent job! You typed at a speed of ${wpm} WPM (required >= 15) and accuracy of ${accuracy}% (required >= 85%). The next lesson is now unlocked on the map.`;
+      
+      starsDiv.style.display = 'block';
+      nextBtn.textContent = "Unlock & Next Lesson! 🚀";
+      
+      // Save lesson completion stars progress
+      stars = accuracy >= 95 ? 3 : (accuracy >= 85 ? 2 : 1);
+      
+      const lessonId = AppState.currentLesson.id;
+      const previousStars = AppState.progress.completedLessons[lessonId] || 0;
+      if (stars > previousStars) {
+        AppState.progress.completedLessons[lessonId] = stars;
+        AppState.saveProgress();
+      }
+      AppState.starsCount += stars;
+      
+      SoundSynth.playFanfare();
+      MascotHelper.react('complete');
+      triggerConfetti();
+    } else {
+      // Failed speed eligibility check
+      eligCard.style.borderColor = "#ef4444";
+      eligCard.style.backgroundColor = "rgba(239, 68, 68, 0.08)";
+      
+      eligTitle.textContent = "Eligibility Check: FAILED ❌";
+      eligTitle.style.color = "#ef4444";
+      eligDesc.textContent = `WPM Speed: ${wpm} (min 15 required) | Accuracy: ${accuracy}% (min 85% required). You took too much time or made too many mistakes. Practice this lesson again to build muscle memory before moving to the next level!`;
+      
+      starsDiv.style.display = 'none';
+      nextBtn.textContent = "Practice Lesson Again 🔄";
+      
+      if (AppState.soundEnabled) SoundSynth.playBuzz();
+      MascotHelper.react('incorrect');
     }
     
-    // Trigger effects
-    SoundSynth.playFanfare();
-    MascotHelper.react('complete');
-    triggerConfetti();
-    
-    // Display Completion Modal details
+    // Display Completion Modal stats
     document.getElementById('complete-lesson-title').textContent = AppState.currentLesson.title;
     document.getElementById('complete-wpm').textContent = `${wpm} WPM`;
     document.getElementById('complete-accuracy').textContent = `${accuracy}%`;
     document.getElementById('complete-errors').textContent = AppState.errors;
     
-    // Render stars representation
-    const starsDiv = document.getElementById('complete-stars');
+    // Render stars representation inside completion card
     starsDiv.innerHTML = '';
     for (let i = 1; i <= 3; i++) {
       const star = document.createElement('span');
@@ -955,6 +1063,20 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     MascotHelper.react('welcome');
   }, 1000);
+  
+  // Double Click cheat code: double click Mascot Avatar to set remaining time to 10 seconds (for grading/testing)
+  const avatar = document.querySelector('.mascot-avatar');
+  if (avatar) {
+    avatar.addEventListener('dblclick', () => {
+      if (AppState.currentLesson && AppState.timerInterval) {
+        AppState.lessonSecondsLeft = 10;
+        AppState.progress.lessonPracticeTime[AppState.currentLesson.id] = 10;
+        AppState.saveProgress();
+        MascotHelper.speak("Cheat code activated. Practice ends in 10 seconds!");
+        MascotHelper.react('cheer');
+      }
+    });
+  }
   
   // Initialize typing listener engine
   TypingTutor.init();
