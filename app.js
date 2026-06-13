@@ -160,9 +160,12 @@ const MascotHelper = {
     mouth.setAttribute('d', 'M 40 65 Q 50 75 60 65'); // Smile
     
     let speech = "";
+    const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+    const userName = userSession ? userSession.name : "friend";
+    
     switch(type) {
       case 'welcome':
-        speech = "Hi there! I am Koko! Let's learn typing together! Pick a lesson on the map to start!";
+        speech = `Hi ${userName}! I am Koko! Let's learn typing together! Pick a lesson on the map to start!`;
         break;
       case 'lesson_start':
         speech = `Let's practice! Follow my hands and type the keys. You got this!`;
@@ -948,6 +951,39 @@ function triggerConfetti() {
 document.addEventListener('DOMContentLoaded', () => {
   // Load saved local files stats
   AppState.loadProgress();
+
+  // Load and apply user session details
+  const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+  if (userSession) {
+    // Update user profile name badge in header
+    const userDisplayNameEl = document.getElementById('user-display-name');
+    if (userDisplayNameEl) {
+      userDisplayNameEl.textContent = `👤 ${userSession.name}`;
+    }
+    
+    // Personalize the welcome titles
+    const welcomeTitleEl = document.getElementById('welcome-title');
+    if (welcomeTitleEl) {
+      welcomeTitleEl.innerHTML = `Welcome, ${userSession.name}! <br>Ready to Learn? 🚀`;
+    }
+    
+    const welcomeSubtitleEl = document.getElementById('welcome-subtitle');
+    if (welcomeSubtitleEl) {
+      welcomeSubtitleEl.textContent = `You are on your way to mastering touch typing! Your goal is "${userSession.goal}" and your skill level is "${userSession.level}". Let's start practicing!`;
+    }
+
+    // Override AppState progress name with the logged-in user name
+    AppState.progress.name = userSession.name;
+  }
+
+  // Bind Sign Out button
+  const signoutBtn = document.getElementById('signout-btn');
+  if (signoutBtn) {
+    signoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('typebuddy_user_session');
+      window.location.href = 'signin.html';
+    });
+  }
   
   // Audio configuration bindings
   const voiceToggle = document.getElementById('setting-voice');
