@@ -772,7 +772,17 @@ const TypingTutor = {
 
 // SPA Navigation Router
 const Router = {
+  signinTypewriterTimeout: null,
+  signupDemoLoopActive: false,
+  signupEmailPrefill: "",
+
   navigateTo(viewId) {
+    // Route protection guard
+    const session = localStorage.getItem('typebuddy_user_session');
+    if (!session && viewId !== 'signin' && viewId !== 'signup') {
+      viewId = 'signin';
+    }
+
     // Cancel overlay display if navigating to core views
     const completeOverlay = document.getElementById('complete-overlay-view');
     if (viewId !== 'complete-overlay') {
@@ -784,6 +794,17 @@ const Router = {
       return;
     }
     
+    // Stop signin/signup loops when leaving them
+    if (viewId !== 'signin') {
+      if (this.signinTypewriterTimeout) {
+        clearTimeout(this.signinTypewriterTimeout);
+        this.signinTypewriterTimeout = null;
+      }
+    }
+    if (viewId !== 'signup') {
+      this.signupDemoLoopActive = false;
+    }
+
     // Hide all sections
     document.querySelectorAll('.view-section').forEach(view => {
       view.classList.remove('active');
@@ -811,9 +832,273 @@ const Router = {
           startLearningBtn.textContent = "Let's Start! 🚀";
         }
       }
+    } else if (viewId === 'signin') {
+      this.initSigninView();
+    } else if (viewId === 'signup') {
+      this.initSignupView();
     }
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+
+  initSigninView() {
+    const stage = document.getElementById('signin-floating-keys-container');
+    if (stage && stage.children.length === 0) {
+      // Spawn Fixed Home-Row Keys
+      const homeRowKeys = [
+        { char: 'A', x: 8, y: 12, depth: 'depth-high', scale: 1.15, rotStart: -10, rotEnd: 10, duration: 6, delay: 0 },
+        { char: 'S', x: 28, y: 8, depth: 'depth-med', scale: 0.95, rotStart: -5, rotEnd: 8, duration: 8, delay: -1.5 },
+        { char: 'D', x: 48, y: 15, depth: 'depth-low', scale: 0.75, rotStart: 12, rotEnd: -8, duration: 9, delay: -4.2 },
+        { char: 'F', x: 68, y: 10, depth: 'depth-high', scale: 1.1, rotStart: -12, rotEnd: 6, duration: 7, delay: -0.8 },
+        { char: 'J', x: 86, y: 14, depth: 'depth-med', scale: 0.9, rotStart: 8, rotEnd: -12, duration: 7.5, delay: -3.1 },
+        { char: 'K', x: 14, y: 62, depth: 'depth-low', scale: 0.75, rotStart: -8, rotEnd: 12, duration: 9.5, delay: -5.7 },
+        { char: 'L', x: 34, y: 68, depth: 'depth-high', scale: 1.15, rotStart: 15, rotEnd: -5, duration: 6.5, delay: -2.3 },
+        { char: ';', x: 78, y: 58, depth: 'depth-med', scale: 0.9, rotStart: -6, rotEnd: 15, duration: 8.5, delay: -6.4 },
+        { char: 'Space', x: 46, y: 48, depth: 'depth-high', scale: 1.05, rotStart: -4, rotEnd: 4, duration: 10, delay: -1.0 }
+      ];
+
+      homeRowKeys.forEach(k => {
+        const slot = document.createElement('div');
+        slot.classList.add('key-slot');
+        slot.style.setProperty('--start-x', `${k.x}%`);
+        slot.style.setProperty('--start-y', `${k.y}%`);
+        slot.style.setProperty('--rot-start', `${k.rotStart}deg`);
+        slot.style.setProperty('--rot-end', `${k.rotEnd}deg`);
+        slot.style.animationDuration = `${k.duration}s`;
+        slot.style.animationDelay = `${k.delay}s`;
+
+        const el = document.createElement('div');
+        el.classList.add('floating-key');
+        el.classList.add(k.depth);
+        el.textContent = k.char;
+
+        if (k.char === 'Space') {
+          el.classList.add('space-floating-key');
+        }
+
+        el.style.transform = `scale(${k.scale})`;
+        el.dataset.scale = k.scale;
+
+        el.addEventListener('click', () => {
+          el.style.background = '#8b5cf6';
+          el.style.borderColor = '#c084fc';
+          el.style.color = '#fff';
+          el.style.boxShadow = '0 0 25px #c084fc';
+          setTimeout(() => {
+            el.style.background = '';
+            el.style.borderColor = '';
+            el.style.color = '';
+            el.style.boxShadow = '';
+          }, 300);
+        });
+
+        slot.appendChild(el);
+        stage.appendChild(slot);
+      });
+
+      // Spawn background particles
+      const totalParticles = 8;
+      for (let i = 0; i < totalParticles; i++) {
+        const p = document.createElement('div');
+        p.classList.add('glowing-particle');
+
+        const size = 3 + Math.floor(Math.random() * 5);
+        const duration = 15 + Math.random() * 15;
+        const delay = Math.random() * -30;
+        const startX = Math.random() * 95;
+        const startY = Math.random() * 95;
+        const dx = Math.random() * 80 - 40;
+        const dy = Math.random() * 80 - 40;
+        const maxOpacity = 0.15 + Math.random() * 0.25;
+
+        p.style.left = `${startX}%`;
+        p.style.top = `${startY}%`;
+        p.style.setProperty('--size', `${size}px`);
+        p.style.setProperty('--duration', `${duration}s`);
+        p.style.setProperty('--delay', `${delay}s`);
+        p.style.setProperty('--max-opacity', maxOpacity);
+        p.style.setProperty('--dx', `${dx}px`);
+        p.style.setProperty('--dy', `${dy}px`);
+
+        stage.appendChild(p);
+      }
+
+      // Parallax mousemove magnet effect
+      stage.addEventListener('mousemove', (e) => {
+        const rect = stage.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const keys = stage.querySelectorAll('.floating-key');
+        keys.forEach(key => {
+          const keyRect = key.getBoundingClientRect();
+          const keyCenterX = keyRect.left - rect.left + keyRect.width / 2;
+          const keyCenterY = keyRect.top - rect.top + keyRect.height / 2;
+
+          const dx = mouseX - keyCenterX;
+          const dy = mouseY - keyCenterY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 85) {
+            const force = (85 - dist) / 85;
+            const pushX = (dx / dist) * -12 * force;
+            const pushY = (dy / dist) * -12 * force;
+            
+            key.style.transform = `scale(${key.dataset.scale}) translate3d(${pushX}px, ${pushY}px, 0)`;
+            key.style.boxShadow = `0 10px 20px rgba(139, 92, 246, ${0.15 + 0.15 * force})`;
+          } else {
+            key.style.transform = `scale(${key.dataset.scale})`;
+            key.style.boxShadow = '';
+          }
+        });
+      });
+
+      stage.addEventListener('mouseleave', () => {
+        const keys = stage.querySelectorAll('.floating-key');
+        keys.forEach(key => {
+          key.style.transform = `scale(${key.dataset.scale})`;
+          key.style.boxShadow = '';
+        });
+      });
+    }
+
+    // Typewriter
+    const typewriterTextEl = document.getElementById('signin-hero-typewriter');
+    if (typewriterTextEl) {
+      const phrases = ["Build Speed", "Improve Accuracy", "Master Typing", "Learn Faster"];
+      let phraseIdx = 0;
+      let charIdx = 0;
+      let isDeleting = false;
+      let typingSpeed = 120;
+
+      const typeCycle = () => {
+        if (AppState.currentView !== 'signin') return; // break recursion if left view
+        const currentPhrase = phrases[phraseIdx];
+
+        if (isDeleting) {
+          typewriterTextEl.textContent = currentPhrase.substring(0, charIdx - 1);
+          charIdx--;
+          typingSpeed = 50;
+        } else {
+          typewriterTextEl.textContent = currentPhrase.substring(0, charIdx + 1);
+          charIdx++;
+          typingSpeed = 120;
+        }
+
+        if (!isDeleting && charIdx === currentPhrase.length) {
+          isDeleting = true;
+          typingSpeed = 2000;
+        } else if (isDeleting && charIdx === 0) {
+          isDeleting = false;
+          phraseIdx = (phraseIdx + 1) % phrases.length;
+          typingSpeed = 500;
+        }
+
+        this.signinTypewriterTimeout = setTimeout(typeCycle, typingSpeed);
+      };
+
+      if (this.signinTypewriterTimeout) clearTimeout(this.signinTypewriterTimeout);
+      this.signinTypewriterTimeout = setTimeout(typeCycle, 800);
+    }
+
+    // Prefill login email fields
+    const emailInput = document.getElementById('signin-email');
+    const passwordInput = document.getElementById('signin-password');
+    const rememberCheckbox = document.getElementById('signin-remember-me');
+    const statusText = document.getElementById('signin-status-text');
+
+    if (emailInput) {
+      if (this.signupEmailPrefill) {
+        emailInput.value = this.signupEmailPrefill;
+        if (statusText) {
+          statusText.textContent = "Welcome to the family! Now sign in! 🐒";
+        }
+        this.signupEmailPrefill = "";
+      } else {
+        if (statusText) statusText.textContent = "Monkey Helper Koko is waiting... 🐒";
+        
+        const remembered = localStorage.getItem('typebuddy_remembered_user');
+        if (remembered) {
+          try {
+            const { email } = JSON.parse(remembered);
+            if (email) emailInput.value = email;
+            if (rememberCheckbox) rememberCheckbox.checked = true;
+            
+            const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+            const matchingUser = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+            if (matchingUser && statusText) {
+              statusText.textContent = `Welcome back, ${matchingUser.name}! 🐒`;
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        } else {
+          emailInput.value = "";
+          if (rememberCheckbox) rememberCheckbox.checked = false;
+        }
+      }
+    }
+    if (passwordInput) passwordInput.value = "";
+  },
+
+  initSignupView() {
+    this.signupDemoLoopActive = true;
+    
+    const DEMO_SENTENCES = [
+      "typebuddy helps you master touch typing",
+      "keep your eyes on the screen, not the keys",
+      "feel the small bumps on keys f and j",
+      "practice every day to build finger memory"
+    ];
+
+    const demoTextEl = document.getElementById('signup-demo-typing-text');
+    let currentSentenceIdx = 0;
+
+    const getDemoKeyId = (char) => {
+      if (char === " ") return "signup-demo-key-space";
+      if (char === ";") return "signup-demo-key-semicolon";
+      if (char === ",") return "signup-demo-key-comma";
+      if (char === ".") return "signup-demo-key-period";
+      return `signup-demo-key-${char.toLowerCase()}`;
+    };
+
+    const typeSentence = async (sentence) => {
+      if (!this.signupDemoLoopActive) return;
+      if (demoTextEl) demoTextEl.textContent = "";
+      
+      for (let i = 0; i < sentence.length; i++) {
+        if (!this.signupDemoLoopActive) return;
+        const char = sentence[i];
+        if (demoTextEl) demoTextEl.textContent += char;
+        
+        const keyId = getDemoKeyId(char);
+        const keyEl = document.getElementById(keyId);
+        if (keyEl) keyEl.classList.add('active');
+        
+        await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 100));
+        
+        if (keyEl) keyEl.classList.remove('active');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      for (let i = sentence.length; i >= 0; i--) {
+        if (!this.signupDemoLoopActive) return;
+        if (demoTextEl) demoTextEl.textContent = sentence.substring(0, i);
+        await new Promise(resolve => setTimeout(resolve, 40));
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+    };
+
+    const startDemoLoop = async () => {
+      while (this.signupDemoLoopActive) {
+        await typeSentence(DEMO_SENTENCES[currentSentenceIdx]);
+        currentSentenceIdx = (currentSentenceIdx + 1) % DEMO_SENTENCES.length;
+      }
+    };
+
+    startDemoLoop();
   },
   
   renderDashboardMap() {
@@ -1490,34 +1775,42 @@ function triggerConfetti() {
 
 // Global Core Controls Initializer
 document.addEventListener('DOMContentLoaded', () => {
-  // Load saved local files stats
-  AppState.loadProgress();
-
-  // Load and apply user session details
-  const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-  if (userSession) {
-    // Update user profile name badge in header
+  // Helper to initialize session elements
+  window.initUserSessionState = function(sessionData) {
+    if (!sessionData) return;
+    
     const userDisplayNameEl = document.getElementById('user-display-name');
     if (userDisplayNameEl) {
-      userDisplayNameEl.textContent = `👤 ${userSession.name}`;
+      userDisplayNameEl.textContent = `👤 ${sessionData.name}`;
     }
     
-    // Personalize the welcome titles
     const welcomeTitleEl = document.getElementById('welcome-title');
     if (welcomeTitleEl) {
-      welcomeTitleEl.innerHTML = `Welcome, ${userSession.name}! <br>Ready to Learn? 🚀`;
+      welcomeTitleEl.innerHTML = `Welcome, ${sessionData.name}! <br>Ready to Learn? 🚀`;
     }
     
     const welcomeSubtitleEl = document.getElementById('welcome-subtitle');
     if (welcomeSubtitleEl) {
-      welcomeSubtitleEl.textContent = `You are on your way to mastering touch typing! Your goal is "${userSession.goal}" and your skill level is "${userSession.level}". Let's start practicing!`;
+      welcomeSubtitleEl.textContent = `You are on your way to mastering touch typing! Your goal is "${sessionData.goal}" and your skill level is "${sessionData.level}". Let's start practicing!`;
     }
 
-    // Override AppState progress name with the logged-in user name
-    AppState.progress.name = userSession.name;
+    AppState.progress.name = sessionData.name;
+    
+    const adminPanelBtn = document.getElementById('admin-panel-btn');
+    if (adminPanelBtn) {
+      adminPanelBtn.style.display = sessionData.isAdmin ? 'flex' : 'none';
+    }
+    
+    AppState.loadProgress();
+  };
 
-    // Show admin panel button if admin logged in
-    if (userSession.isAdmin === true) {
+  // Load and apply user session details
+  const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+  if (userSession) {
+    window.initUserSessionState(userSession);
+  }
+
+  if (userSession && userSession.isAdmin === true) {
       const adminPanelBtn = document.getElementById('admin-panel-btn');
       if (adminPanelBtn) {
         adminPanelBtn.style.display = 'flex';
@@ -1616,14 +1909,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // Initial render of admins list
       renderAdminsList();
     }
-  }
 
   // Bind Sign Out button
   const signoutBtn = document.getElementById('signout-btn');
   if (signoutBtn) {
     signoutBtn.addEventListener('click', () => {
       localStorage.removeItem('typebuddy_user_session');
-      window.location.href = 'signin.html';
+      Router.navigateTo('signin');
     });
   }
   
@@ -1901,7 +2193,392 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize typing listener engine
   TypingTutor.init();
-  
-  // Boot into welcome screen
-  Router.navigateTo('welcome');
+
+  // --- SIGN IN FORM VALIDATION & SUBMISSION ---
+  const signinForm = document.getElementById('signin-form-el');
+  const signinEmailInput = document.getElementById('signin-email');
+  const signinPasswordInput = document.getElementById('signin-password');
+  const signinRememberCheckbox = document.getElementById('signin-remember-me');
+  const signinGeneralAlert = document.getElementById('signin-general-error');
+  const signinSubmitBtn = document.getElementById('signin-submit-btn');
+
+  function clearSigninErrors() {
+    if (signinGeneralAlert) signinGeneralAlert.style.display = 'none';
+    document.querySelectorAll('#signin-view .input-group').forEach(group => {
+      group.classList.remove('invalid');
+    });
+    document.querySelectorAll('#signin-view .validation-message').forEach(span => {
+      span.textContent = "";
+    });
+  }
+
+  function setSigninError(inputEl, message) {
+    const group = inputEl.closest('.input-group');
+    if (group) {
+      group.classList.add('invalid');
+      const errorSpan = group.querySelector('.validation-message');
+      if (errorSpan) {
+        errorSpan.textContent = message;
+      }
+    }
+  }
+
+  if (signinForm) {
+    signinForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      clearSigninErrors();
+
+      let isValid = true;
+      const emailVal = signinEmailInput.value.trim();
+      const passwordVal = signinPasswordInput.value.trim();
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailVal) {
+        setSigninError(signinEmailInput, "Email Address is required.");
+        isValid = false;
+      } else if (!emailRegex.test(emailVal)) {
+        setSigninError(signinEmailInput, "Please enter a valid email address.");
+        isValid = false;
+      }
+
+      if (!passwordVal) {
+        setSigninError(signinPasswordInput, "Password is required.");
+        isValid = false;
+      }
+
+      if (!isValid) {
+        if (signinGeneralAlert) {
+          signinGeneralAlert.style.display = 'flex';
+          signinGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        return;
+      }
+
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const adminAccounts = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
+      
+      const matchingAdmin = adminAccounts.find(a => a.email.toLowerCase() === emailVal.toLowerCase());
+      let isAdmin = false;
+      let matchingUser = null;
+      
+      if (matchingAdmin) {
+        if (matchingAdmin.password !== passwordVal) {
+          setSigninError(signinPasswordInput, "Incorrect password.");
+          if (signinGeneralAlert) signinGeneralAlert.style.display = 'flex';
+          return;
+        }
+        isAdmin = true;
+        matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase()) || {
+          name: "Admin Revanth",
+          email: emailVal,
+          goal: "General Typing",
+          level: "Advanced"
+        };
+      } else {
+        matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase());
+        if (!matchingUser) {
+          setSigninError(signinEmailInput, "No account found with this email.");
+          if (signinGeneralAlert) signinGeneralAlert.style.display = 'flex';
+          return;
+        } else if (matchingUser.password && matchingUser.password !== passwordVal) {
+          setSigninError(signinPasswordInput, "Incorrect password.");
+          if (signinGeneralAlert) signinGeneralAlert.style.display = 'flex';
+          return;
+        }
+      }
+
+      signinSubmitBtn.disabled = true;
+      signinSubmitBtn.textContent = "Signing in... 🚀";
+
+      const nameVal = matchingUser.name || "User";
+      const goal = matchingUser.goal || "Improve Speed";
+      const level = matchingUser.level || "Beginner";
+
+      if (signinRememberCheckbox && signinRememberCheckbox.checked) {
+        localStorage.setItem('typebuddy_remembered_user', JSON.stringify({ email: emailVal }));
+      } else {
+        localStorage.removeItem('typebuddy_remembered_user');
+      }
+
+      const sessionData = {
+        name: nameVal,
+        email: emailVal,
+        goal: goal,
+        level: level,
+        signedInAt: new Date().toISOString(),
+        rememberMe: signinRememberCheckbox ? signinRememberCheckbox.checked : false,
+        isAdmin: isAdmin
+      };
+
+      localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
+      window.initUserSessionState(sessionData);
+
+      setTimeout(() => {
+        signinSubmitBtn.disabled = false;
+        signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
+        Router.navigateTo('welcome');
+      }, 600);
+    });
+  }
+
+  // --- SIGN UP FORM VALIDATION & SUBMISSION ---
+  const signupForm = document.getElementById('signup-form-el');
+  const signupNameInput = document.getElementById('signup-full-name');
+  const signupAgeInput = document.getElementById('signup-age');
+  const signupEmailInput = document.getElementById('signup-email');
+  const signupPasswordInput = document.getElementById('signup-password');
+  const signupGoalSelect = document.getElementById('signup-goal');
+  const signupLevelSelect = document.getElementById('signup-level');
+  const signupGeneralAlert = document.getElementById('signup-general-error');
+  const signupSubmitBtn = document.getElementById('signup-submit-btn');
+
+  function clearSignupErrors() {
+    if (signupGeneralAlert) signupGeneralAlert.style.display = 'none';
+    document.querySelectorAll('#signup-view .input-group').forEach(group => {
+      group.classList.remove('invalid');
+    });
+    document.querySelectorAll('#signup-view .validation-message').forEach(span => {
+      span.textContent = "";
+    });
+  }
+
+  function setSignupError(inputEl, message) {
+    const group = inputEl.closest('.input-group');
+    if (group) {
+      group.classList.add('invalid');
+      const errorSpan = group.querySelector('.validation-message');
+      if (errorSpan) {
+        errorSpan.textContent = message;
+      }
+    }
+  }
+
+  // Real-time Name checking (must be unique)
+  if (signupNameInput) {
+    signupNameInput.addEventListener('input', () => {
+      const nameVal = signupNameInput.value.trim();
+      const group = signupNameInput.closest('.input-group');
+      if (group) {
+        group.classList.remove('invalid');
+        const errorSpan = group.querySelector('.validation-message');
+        if (errorSpan) errorSpan.textContent = "";
+      }
+      if (!nameVal) return;
+      
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const nameExists = registeredUsers.some(u => u.name.trim().toLowerCase() === nameVal.toLowerCase());
+      if (nameExists) {
+        setSignupError(signupNameInput, "Username already exists. Please choose a different name.");
+      }
+    });
+  }
+
+  // Real-time Email checking (must be unique)
+  if (signupEmailInput) {
+    signupEmailInput.addEventListener('input', () => {
+      const emailVal = signupEmailInput.value.trim();
+      const group = signupEmailInput.closest('.input-group');
+      if (group) {
+        group.classList.remove('invalid');
+        const errorSpan = group.querySelector('.validation-message');
+        if (errorSpan) errorSpan.textContent = "";
+      }
+      if (!emailVal) return;
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailVal)) {
+        setSignupError(signupEmailInput, "Please enter a valid email address.");
+        return;
+      }
+      
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const emailExists = registeredUsers.some(u => u.email.trim().toLowerCase() === emailVal.toLowerCase());
+      if (emailExists) {
+        setSignupError(signupEmailInput, "Email address is already registered. Please use a different email.");
+      }
+    });
+  }
+
+  if (signupForm) {
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearSignupErrors();
+
+      let isValid = true;
+
+      const nameVal = signupNameInput.value.trim();
+      if (!nameVal) {
+        setSignupError(signupNameInput, "Full Name is required.");
+        isValid = false;
+      } else {
+        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+        const nameExists = registeredUsers.some(u => u.name.trim().toLowerCase() === nameVal.toLowerCase());
+        if (nameExists) {
+          setSignupError(signupNameInput, "Username already exists. Please choose a different name.");
+          isValid = false;
+        }
+      }
+
+      const ageVal = parseInt(signupAgeInput.value, 10);
+      if (isNaN(ageVal)) {
+        setSignupError(signupAgeInput, "Age is required.");
+        isValid = false;
+      } else if (ageVal <= 5) {
+        setSignupError(signupAgeInput, "Age must be greater than 5.");
+        isValid = false;
+      }
+
+      const emailVal = signupEmailInput.value.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailVal) {
+        setSignupError(signupEmailInput, "Email Address is required.");
+        isValid = false;
+      } else if (!emailRegex.test(emailVal)) {
+        setSignupError(signupEmailInput, "Please enter a valid email address.");
+        isValid = false;
+      } else {
+        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+        const emailExists = registeredUsers.some(u => u.email.trim().toLowerCase() === emailVal.toLowerCase());
+        if (emailExists) {
+          setSignupError(signupEmailInput, "Email address is already registered. Please use a different email.");
+          isValid = false;
+        }
+      }
+
+      const passwordVal = signupPasswordInput.value;
+      if (!passwordVal) {
+        setSignupError(signupPasswordInput, "Password is required.");
+        isValid = false;
+      } else if (passwordVal.length < 6) {
+        setSignupError(signupPasswordInput, "Password must be at least 6 characters.");
+        isValid = false;
+      }
+
+      const goalVal = signupGoalSelect.value;
+      if (!goalVal) {
+        setSignupError(signupGoalSelect, "Please choose a typing goal.");
+        isValid = false;
+      }
+
+      const levelVal = signupLevelSelect.value;
+      if (!levelVal) {
+        setSignupError(signupLevelSelect, "Please choose a typing level.");
+        isValid = false;
+      }
+
+      if (!isValid) {
+        if (signupGeneralAlert) {
+          signupGeneralAlert.style.display = 'flex';
+          signupGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        return;
+      }
+
+      signupSubmitBtn.disabled = true;
+      signupSubmitBtn.textContent = "Creating Session... ⏳";
+
+      const saveSessionAndProceed = () => {
+        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+        const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === emailVal.toLowerCase());
+        const userData = { name: nameVal, email: emailVal, password: passwordVal, goal: goalVal, level: levelVal, registeredAt: new Date().toISOString() };
+        if (existingIndex > -1) {
+          registeredUsers[existingIndex] = userData;
+        } else {
+          registeredUsers.push(userData);
+        }
+        localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
+
+        // Auto-login session directly
+        const sessionData = {
+          name: nameVal,
+          email: emailVal,
+          goal: goalVal,
+          level: levelVal,
+          signedInAt: new Date().toISOString(),
+          rememberMe: false,
+          isAdmin: false
+        };
+        localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
+        window.initUserSessionState(sessionData);
+
+        setTimeout(() => {
+          signupSubmitBtn.disabled = false;
+          signupSubmitBtn.textContent = "Start Learning! 🚀";
+          Router.signupEmailPrefill = emailVal;
+          Router.navigateTo('welcome');
+        }, 600);
+      };
+
+      const isFirebasePlaceholder = 
+        typeof firebaseConfig === 'undefined' || 
+        firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
+        firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+
+      if (isFirebasePlaceholder) {
+        console.warn("Operating in local simulation mode.");
+        saveSessionAndProceed();
+        return;
+      }
+
+      try {
+        const userQuery = await db.collection("users").where("name", "==", nameVal).get();
+        if (!userQuery.empty) {
+          setSignupError(signupNameInput, "Username already exists. Please choose a different name.");
+          signupSubmitBtn.disabled = false;
+          signupSubmitBtn.textContent = "Start Learning! 🚀";
+          if (signupGeneralAlert) signupGeneralAlert.style.display = 'flex';
+          return;
+        }
+
+        const emailQuery = await db.collection("users").where("email", "==", emailVal).get();
+        if (!emailQuery.empty) {
+          setSignupError(signupEmailInput, "Email address is already registered. Please use a different email.");
+          signupSubmitBtn.disabled = false;
+          signupSubmitBtn.textContent = "Start Learning! 🚀";
+          if (signupGeneralAlert) signupGeneralAlert.style.display = 'flex';
+          return;
+        }
+
+        await db.collection("users").add({
+          name: nameVal,
+          age: ageVal,
+          email: emailVal,
+          password: passwordVal,
+          goal: goalVal,
+          level: levelVal,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        saveSessionAndProceed();
+      } catch (error) {
+        console.error("Firestore Error:", error);
+        signupSubmitBtn.disabled = false;
+        signupSubmitBtn.textContent = "Start Learning! 🚀";
+        alert(`❌ Database error: Unable to register user.\n\nDetails: ${error.message}`);
+      }
+    });
+  }
+
+  // --- SPA REDIRECTS TRIGGER BINDINGS ---
+  const gotoSignupBtn = document.getElementById('goto-signup-btn');
+  if (gotoSignupBtn) {
+    gotoSignupBtn.addEventListener('click', () => {
+      Router.navigateTo('signup');
+    });
+  }
+
+  const gotoSigninBtn = document.getElementById('goto-signin-btn');
+  if (gotoSigninBtn) {
+    gotoSigninBtn.addEventListener('click', () => {
+      Router.navigateTo('signin');
+    });
+  }
+
+  // SPA Session Initialisation Boot Guard
+  const session = localStorage.getItem('typebuddy_user_session');
+  if (session) {
+    Router.navigateTo('welcome');
+  } else {
+    Router.navigateTo('signin');
+  }
 });

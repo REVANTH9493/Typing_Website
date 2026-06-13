@@ -7,15 +7,6 @@
   <meta name="description" content="An interactive, gamified typing tutor designed for kids and adults. Sourced from standard typing textbooks.">
   <link rel="stylesheet" href="styles.css?v=1.0.2">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script>
-    // Route protection: redirect to signin.html if no session is stored
-    (function() {
-      const session = localStorage.getItem('typebuddy_user_session');
-      if (!session) {
-        window.location.href = 'signin.html';
-      }
-    })();
-  </script>
 </head>
 <body>
 
@@ -444,6 +435,308 @@
           <ul id="admin-accounts-list" style="list-style: none; padding: 0; margin-top: 12px;">
             <!-- Rendered dynamically via app.js -->
           </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. SIGN IN VIEW -->
+    <section id="signin-view" class="view-section">
+      <div class="signin-wrapper">
+        <!-- Left Pane: Drifting Floating Keys Hero Animation -->
+        <div class="signin-left">
+          <!-- Glow background circles for light overlay effects -->
+          <div class="glow-orb glow-orb-1"></div>
+          <div class="glow-orb glow-orb-2"></div>
+          
+          <div class="animation-container glass-card">
+            <!-- Welcoming Hero Content -->
+            <div class="hero-header">
+              <span class="welcome-badge">👋 Welcome Back!</span>
+              <h1 class="hero-title">Welcome Back to TypeBuddy</h1>
+              <p class="hero-subtitle">Continue your typing journey and improve your speed every day.</p>
+              <div class="hero-typewriter-line">Ready to <span id="signin-hero-typewriter"></span><span class="typewriter-cursor"></span></div>
+            </div>
+
+            <!-- Drifting/Floating Keys Container -->
+            <div class="floating-keys-stage" id="signin-floating-keys-container">
+              <!-- Dynamically populated via app.js -->
+            </div>
+
+            <!-- Glowing interactive typing tracker visualizer -->
+            <div class="typing-visual-panel">
+              <div class="keyboard-glow-line"></div>
+              <div class="tracker-status">
+                <span class="status-dot animate-pulse"></span>
+                <span class="status-text" id="signin-status-text">Monkey Helper Koko is waiting... 🐒</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Pane: Sign In Form -->
+        <div class="signin-right">
+          <div class="form-container glass-card">
+            <!-- Logo -->
+            <div class="logo-container" style="justify-content: center; margin-bottom: 12px; align-items: center; gap: 12px;">
+              <img src="logo.jpg" alt="TypeBuddy" style="height: 50px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+              <span class="logo-text">TypeBuddy</span>
+            </div>
+            <h2 class="signin-form-title">Let's Keep Learning!</h2>
+            <p class="signin-form-subtitle">Sign in to resume your touch typing adventure</p>
+            
+            <!-- Validation Error Alert Panel -->
+            <div id="signin-general-error" class="error-alert-box" style="display: none;">
+              ⚠️ Please check your sign-in details below.
+            </div>
+
+            <form id="signin-form-el" novalidate>
+              <!-- Email Address -->
+              <div class="input-group">
+                <label for="signin-email">📧 Email Address</label>
+                <input type="email" id="signin-email" placeholder="name@example.com" autocomplete="email" required>
+                <span class="validation-message" id="signin-email-error"></span>
+              </div>
+
+              <!-- Password -->
+              <div class="input-group">
+                <label for="signin-password">🔑 Password</label>
+                <input type="password" id="signin-password" placeholder="Enter your password" autocomplete="current-password" required>
+                <span class="validation-message" id="signin-password-error"></span>
+              </div>
+
+              <!-- Remember Me Checkbox -->
+              <div class="remember-me-group">
+                <label class="remember-me-label">
+                  <input type="checkbox" id="signin-remember-me">
+                  <span class="checkbox-custom"></span>
+                  Remember Me
+                </label>
+              </div>
+
+              <!-- Submit Button -->
+              <button type="submit" id="signin-submit-btn" class="btn btn-primary btn-submit">
+                Sign In & Learn! 🚀
+              </button>
+            </form>
+
+            <!-- Redirect Link to Sign Up -->
+            <div class="signup-link-container">
+              <span class="signup-link-text">New to TypeBuddy? </span>
+              <button class="signup-link btn-link-style" id="goto-signup-btn" style="background:none; border:none; padding:0; cursor:pointer; font-family:inherit; font-size:inherit;">Create an Account</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. SIGN UP VIEW -->
+    <section id="signup-view" class="view-section">
+      <div class="signin-wrapper">
+        <!-- Left Pane: Typing Mascot & Animation -->
+        <div class="signin-left">
+          <div class="animation-container glass-card">
+            <!-- Mascot Speech Bubble -->
+            <div class="mascot-speech-bubble-left">
+              Ready to become a typing master? 🐒
+            </div>
+
+            <!-- Premium Animated Mascot SVG -->
+            <div class="mascot-svg-wrapper">
+              <svg viewBox="0 0 200 160" class="monkey-laptop-svg" width="100%" height="100%">
+                <defs>
+                  <radialGradient id="screen-glow-grad-2" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+                  </radialGradient>
+                </defs>
+
+                <ellipse cx="100" cy="125" rx="35" ry="25" fill="url(#screen-glow-grad-2)" class="screen-glow"/>
+
+                <path d="M 65 140 C 65 110, 135 110, 135 140 Z" fill="#7c3aed"/>
+                <path d="M 90 110 L 110 110 L 100 120 Z" fill="#f3d4b8"/>
+
+                <circle cx="62" cy="78" r="13" fill="#a76f44"/>
+                <circle cx="62" cy="78" r="8" fill="#fbcfe8"/>
+                <circle cx="138" cy="78" r="13" fill="#a76f44"/>
+                <circle cx="138" cy="78" r="8" fill="#fbcfe8"/>
+
+                <circle cx="100" cy="78" r="30" fill="#a76f44"/>
+
+                <path d="M 78 80 C 78 64, 100 66, 100 74 C 100 66, 122 64, 122 80 C 122 93, 100 99, 100 99 C 100 99, 78 93, 78 80 Z" fill="#f3d4b8"/>
+
+                <g class="monkey-eyes">
+                  <ellipse cx="90" cy="76" rx="4" ry="5" fill="#1e293b" class="eyeball-l"/>
+                  <ellipse cx="110" cy="76" rx="4" ry="5" fill="#1e293b" class="eyeball-r"/>
+                </g>
+
+                <g class="monkey-glasses">
+                  <circle cx="90" cy="76" r="9" stroke="#4c1d95" stroke-width="2.5" fill="none"/>
+                  <circle cx="110" cy="76" r="9" stroke="#4c1d95" stroke-width="2.5" fill="none"/>
+                  <path d="M 99 76 L 101 76" stroke="#4c1d95" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M 81 76 L 72 76" stroke="#4c1d95" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M 119 76 L 128 76" stroke="#4c1d95" stroke-width="2" stroke-linecap="round"/>
+                </g>
+
+                <path d="M 94 88 Q 100 93 106 88" fill="none" stroke="#6b21a8" stroke-width="2.5" stroke-linecap="round"/>
+
+                <path d="M 73 105 L 127 105 L 137 138 L 63 138 Z" fill="#334155" stroke="#475569" stroke-width="1.5" stroke-linejoin="round"/>
+                
+                <path d="M 100 115 C 103 115, 106 118, 105 122 C 103 125, 97 125, 95 122 C 94 118, 97 115, 100 115 Z" fill="#fbbf24" class="logo-glow"/>
+
+                <path d="M 45 138 L 155 138 L 168 152 L 32 152 Z" fill="#1e293b" stroke="#334155" stroke-width="1.5" stroke-linejoin="round"/>
+
+                <circle cx="78" cy="136" r="5" fill="#f3d4b8" class="typing-hand-l"/>
+                <circle cx="122" cy="136" r="5" fill="#f3d4b8" class="typing-hand-r"/>
+              </svg>
+            </div>
+
+            <!-- Touch Typing Demo Terminal Screen -->
+            <div class="demo-screen">
+              <div class="screen-title">💡 Touch Typing Practice</div>
+              <div class="typewriter-text" id="signup-demo-typing-text"></div>
+            </div>
+            
+            <!-- Interactive Glowing Keyboard Demo -->
+            <div class="keyboard-demo-container">
+              <div class="keyboard-row">
+                <div class="key-demo" id="signup-demo-key-q">Q</div>
+                <div class="key-demo" id="signup-demo-key-w">W</div>
+                <div class="key-demo" id="signup-demo-key-e">E</div>
+                <div class="key-demo" id="signup-demo-key-r">R</div>
+                <div class="key-demo" id="signup-demo-key-t">T</div>
+                <div class="key-demo" id="signup-demo-key-y">Y</div>
+                <div class="key-demo" id="signup-demo-key-u">U</div>
+                <div class="key-demo" id="signup-demo-key-i">I</div>
+                <div class="key-demo" id="signup-demo-key-o">O</div>
+                <div class="key-demo" id="signup-demo-key-p">P</div>
+              </div>
+              <div class="keyboard-row">
+                <div class="key-demo" id="signup-demo-key-a">A</div>
+                <div class="key-demo" id="signup-demo-key-s">S</div>
+                <div class="key-demo" id="signup-demo-key-d">D</div>
+                <div class="key-demo" id="signup-demo-key-f">F</div>
+                <div class="key-demo" id="signup-demo-key-g">G</div>
+                <div class="key-demo" id="signup-demo-key-h">H</div>
+                <div class="key-demo" id="signup-demo-key-j">J</div>
+                <div class="key-demo" id="signup-demo-key-k">K</div>
+                <div class="key-demo" id="signup-demo-key-l">L</div>
+                <div class="key-demo" id="signup-demo-key-semicolon">;</div>
+              </div>
+              <div class="keyboard-row">
+                <div class="key-demo" id="signup-demo-key-z">Z</div>
+                <div class="key-demo" id="signup-demo-key-x">X</div>
+                <div class="key-demo" id="signup-demo-key-c">C</div>
+                <div class="key-demo" id="signup-demo-key-v">V</div>
+                <div class="key-demo" id="signup-demo-key-b">B</div>
+                <div class="key-demo" id="signup-demo-key-n">N</div>
+                <div class="key-demo" id="signup-demo-key-m">M</div>
+                <div class="key-demo" id="signup-demo-key-comma">,</div>
+                <div class="key-demo" id="signup-demo-key-period">.</div>
+              </div>
+              <div class="keyboard-row">
+                <div class="key-demo space-key" id="signup-demo-key-space">Space</div>
+              </div>
+            </div>
+
+            <!-- Motivational Highlights below Mascot -->
+            <div class="motivational-highlights">
+              <span class="highlight-badge">⚡ Improve typing speed</span>
+              <span class="highlight-badge">🎯 Build accuracy</span>
+              <span class="highlight-badge">💪 Learn touch typing faster</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Pane: Sign Up Form -->
+        <div class="signin-right">
+          <div class="form-container glass-card">
+            <div class="logo-container" style="justify-content: center; margin-bottom: 12px; align-items: center; gap: 12px;">
+              <img src="logo.jpg" alt="TypeBuddy" style="height: 50px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+              <span class="logo-text">TypeBuddy</span>
+            </div>
+            <h1 class="signin-title">Master Typing with Confidence</h1>
+            <p class="signin-subtitle">Enter your details below to start touch typing</p>
+            
+            <!-- Validation Error Message Alert Panel -->
+            <div id="signup-general-error" class="error-alert-box" style="display: none;">
+              ⚠️ Please correct the errors in the form below.
+            </div>
+
+            <form id="signup-form-el" novalidate>
+              <!-- Full Name -->
+              <div class="input-group">
+                <label for="signup-full-name">👤 Full Name</label>
+                <input type="text" id="signup-full-name" placeholder="Enter your full name" autocomplete="name">
+                <span class="validation-message" id="signup-name-error"></span>
+              </div>
+
+              <!-- Age & Email Grid -->
+              <div class="form-grid-2">
+                <!-- Age -->
+                <div class="input-group">
+                  <label for="signup-age">🎂 Age</label>
+                  <input type="number" id="signup-age" placeholder="Age" min="6">
+                  <span class="validation-message" id="signup-age-error"></span>
+                </div>
+                
+                <!-- Email -->
+                <div class="input-group">
+                  <label for="signup-email">📧 Email Address</label>
+                  <input type="email" id="signup-email" placeholder="name@example.com" autocomplete="email">
+                  <span class="validation-message" id="signup-email-error"></span>
+                </div>
+              </div>
+
+              <!-- Password -->
+              <div class="input-group">
+                <label for="signup-password">🔑 Password</label>
+                <input type="password" id="signup-password" placeholder="Create a secure password" autocomplete="new-password">
+                <span class="validation-message" id="signup-password-error"></span>
+              </div>
+
+              <!-- Typing Goal & Typing Level Grid -->
+              <div class="form-grid-2">
+                <!-- Typing Goal Dropdown -->
+                <div class="input-group">
+                  <label for="signup-goal">🎯 Typing Goal</label>
+                  <div class="select-wrapper">
+                    <select id="signup-goal">
+                      <option value="" disabled selected>Select your goal...</option>
+                      <option value="Improve Speed">Improve Speed ⚡</option>
+                      <option value="Exam Preparation">Exam Preparation 📝</option>
+                      <option value="Coding Practice">Coding Practice 💻</option>
+                      <option value="General Typing">General Typing ⌨️</option>
+                    </select>
+                  </div>
+                  <span class="validation-message" id="signup-goal-error"></span>
+                </div>
+
+                <!-- Typing Level Dropdown -->
+                <div class="input-group">
+                  <label for="signup-level">📊 Typing Level</label>
+                  <div class="select-wrapper">
+                    <select id="signup-level">
+                      <option value="Beginner" selected>Beginner 🌱</option>
+                      <option value="Intermediate">Intermediate 🚀</option>
+                      <option value="Advanced">Advanced 🏆</option>
+                    </select>
+                  </div>
+                  <span class="validation-message" id="signup-level-error"></span>
+                </div>
+              </div>
+
+              <!-- Submit Button -->
+              <button type="submit" id="signup-submit-btn" class="btn btn-primary btn-submit">
+                Start Learning! 🚀
+              </button>
+            </form>
+
+            <!-- Redirect Link to Sign In -->
+            <div class="signin-link-container">
+              <span class="signin-link-text">Already have an account? </span>
+              <button class="signin-link btn-link-style" id="goto-signin-btn" style="background:none; border:none; padding:0; cursor:pointer; font-family:inherit; font-size:inherit;">Sign In</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
