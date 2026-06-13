@@ -114,25 +114,160 @@ const AppState = {
     completedLessons: {},     // lessonId -> stars (1-3)
     lessonPracticeTime: {},   // lessonId -> seconds remaining (starts at 3600)
     highScores: {},           // game -> score
-    name: 'Young Typist'
+    name: 'Young Typist',
+    history: []               // Array of practice attempts
   },
   
   loadProgress() {
-    const saved = localStorage.getItem('typebuddy_progress');
+    const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+    const userEmail = userSession ? userSession.email : 'guest';
+    const key = `typebuddy_progress_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    
+    // Reset to defaults first to prevent inheriting memory state from previous sessions
+    this.progress = {
+      completedLessons: {},     // lessonId -> stars (1-3)
+      lessonPracticeTime: {},   // lessonId -> seconds remaining (starts at 3600)
+      highScores: {},           // game -> score
+      name: userSession ? userSession.name : 'Young Typist',
+      history: []               // Array of practice attempts
+    };
+
+    const saved = localStorage.getItem(key);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         this.progress = { ...this.progress, ...parsed };
-        if (!this.progress.lessonPracticeTime) this.progress.lessonPracticeTime = {};
-        if (!this.progress.completedLessons) this.progress.completedLessons = {};
       } catch (e) {
         console.error("Failed to load progress from localStorage", e);
       }
     }
+    if (!this.progress.lessonPracticeTime) this.progress.lessonPracticeTime = {};
+    if (!this.progress.completedLessons) this.progress.completedLessons = {};
+    if (!this.progress.history) this.progress.history = [];
+    if (!this.progress.highScores) this.progress.highScores = {};
+    
+    // Sync from database (local or remote)
+    this.syncFromDatabase();
+  },
+  
+  async syncFromDatabase() {
+    const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+    if (!userSession || !userSession.email) return;
+    
+    const isFirebasePlaceholder = 
+      typeof firebaseConfig === 'undefined' || 
+      firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
+      firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+      
+    if (isFirebasePlaceholder) {
+      // Load from local registry database
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const user = registeredUsers.find(u => u.email.toLowerCase() === userSession.email.toLowerCase());
+      if (user && user.progress) {
+        this.progress = { ...this.progress, ...user.progress };
+        if (this.currentView === 'dashboard') {
+          Router.renderDashboardMap();
+        }
+      }
+      return;
+    }
+    
+    // Firestore integration
+    try {
+      const querySnapshot = await db.collection("users").where("email", "==", userSession.email).get();
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        const data = doc.data();
+        if (data.progress) {
+          this.progress = { ...this.progress, ...data.progress };
+          
+          // Cache locally
+          const userEmail = userSession.email;
+          const key = `typebuddy_progress_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          localStorage.setItem(key, JSON.stringify(this.progress));
+          localStorage.setItem('typebuddy_progress', JSON.stringify(this.progress));
+          
+          if (this.currentView === 'dashboard') {
+            Router.renderDashboardMap();
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error syncing progress from Firestore:", e);
+    }
   },
   
   saveProgress() {
+    this.saveProgressToDatabase();
+  },
+  
+  async saveProgressToDatabase() {
+    const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+    if (!userSession || !userSession.email) return;
+    
+    const userEmail = userSession.email;
+    
+    // 1. Calculate the current level the user is in based on their highest completed lesson
+    let highestCompletedLevel = 1;
+    for (const levelData of TYPING_LESSONS) {
+      const allCompleted = levelData.lessons.every(lesson => (this.progress.completedLessons[lesson.id] || 0) > 0);
+      if (allCompleted) {
+        highestCompletedLevel = Math.max(highestCompletedLevel, levelData.level + 1);
+      }
+    }
+    const maxLevel = TYPING_LESSONS.reduce((max, l) => Math.max(max, l.level), 1);
+    if (highestCompletedLevel > maxLevel) {
+      highestCompletedLevel = maxLevel;
+    }
+    
+    const currentLevelString = `Level ${highestCompletedLevel}`;
+    
+    // 2. Save locally first (user-specific localStorage key)
+    const key = `typebuddy_progress_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    localStorage.setItem(key, JSON.stringify(this.progress));
     localStorage.setItem('typebuddy_progress', JSON.stringify(this.progress));
+    
+    // 3. Update local user session level state
+    userSession.level = currentLevelString;
+    localStorage.setItem('typebuddy_user_session', JSON.stringify(userSession));
+    
+    // Update welcome screen subtitle dynamically
+    const welcomeSubtitleEl = document.getElementById('welcome-subtitle');
+    if (welcomeSubtitleEl) {
+      welcomeSubtitleEl.textContent = `You are on your way to mastering touch typing! Your goal is "${userSession.goal}" and your skill level is "${userSession.level}". Let's start practicing!`;
+    }
+    
+    // 4. Update local registry database
+    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+    const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === userEmail.toLowerCase());
+    if (existingIndex > -1) {
+      registeredUsers[existingIndex].progress = this.progress;
+      registeredUsers[existingIndex].level = currentLevelString;
+      localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
+    }
+    
+    // 5. Update Firestore database (if active)
+    const isFirebasePlaceholder = 
+      typeof firebaseConfig === 'undefined' || 
+      firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
+      firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+      
+    if (!isFirebasePlaceholder) {
+      try {
+        const querySnapshot = await db.collection("users").where("email", "==", userEmail).get();
+        if (!querySnapshot.empty) {
+          const docId = querySnapshot.docs[0].id;
+          await db.collection("users").doc(docId).update({
+            progress: this.progress,
+            level: currentLevelString,
+            lastActiveAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          console.log("Progress and level successfully updated in Firestore database!");
+        }
+      } catch (e) {
+        console.error("Error writing progress to Firestore database:", e);
+      }
+    }
   }
 };
 
@@ -548,6 +683,20 @@ const TypingTutor = {
     const wpm = Math.round((AppState.correctStrokes / 5) / elapsedMinutes) || 10;
     const accuracy = Math.round((AppState.correctStrokes / AppState.keystrokes) * 100) || 100;
     
+    // Ensure history exists
+    if (!AppState.progress.history) {
+      AppState.progress.history = [];
+    }
+    // Record current attempt stats
+    AppState.progress.history.push({
+      lessonId: AppState.currentLesson.id,
+      wpm: wpm,
+      accuracy: accuracy,
+      errors: AppState.errors,
+      timestamp: new Date().getTime()
+    });
+    AppState.saveProgress();
+    
     // Eligibility Threshold check: WPM >= 15 and Accuracy >= 85%
     const isEligible = (wpm >= 15 && accuracy >= 85);
     
@@ -652,6 +801,16 @@ const Router = {
       this.renderDashboardMap();
     } else if (viewId === 'stats') {
       this.renderStatsView();
+    } else if (viewId === 'welcome') {
+      const completedCount = Object.keys(AppState.progress.completedLessons || {}).length;
+      const startLearningBtn = document.getElementById('start-learning-btn');
+      if (startLearningBtn) {
+        if (completedCount > 0) {
+          startLearningBtn.textContent = "Let's Continue! 🚀";
+        } else {
+          startLearningBtn.textContent = "Let's Start! 🚀";
+        }
+      }
     }
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -665,17 +824,32 @@ const Router = {
     const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
     const isAdmin = userSession && userSession.isAdmin === true;
     
+    // Determine the next lesson ID to be done
+    let nextLessonId = null;
+    for (const levelData of TYPING_LESSONS) {
+      for (const lesson of levelData.lessons) {
+        const starsEarned = AppState.progress.completedLessons[lesson.id] || 0;
+        if (starsEarned === 0) {
+          nextLessonId = lesson.id;
+          break;
+        }
+      }
+      if (nextLessonId !== null) break;
+    }
+    // Fallback: if all lessons are completed, nextLessonId is the last lesson ID
+    if (nextLessonId === null && TYPING_LESSONS.length > 0) {
+      const lastLevel = TYPING_LESSONS[TYPING_LESSONS.length - 1];
+      if (lastLevel.lessons.length > 0) {
+        nextLessonId = lastLevel.lessons[lastLevel.lessons.length - 1].id;
+      }
+    }
+
     let isPreviousCompleted = true; // Unlock first lesson by default
     let totalStarsEarned = 0;
     
     TYPING_LESSONS.forEach(levelData => {
       const levelWrapper = document.createElement('div');
       levelWrapper.className = 'map-level-container';
-      
-      const lvlHeader = document.createElement('h3');
-      lvlHeader.className = 'level-title';
-      lvlHeader.textContent = levelData.levelName;
-      levelWrapper.appendChild(lvlHeader);
       
       const grid = document.createElement('div');
       grid.className = 'lessons-grid';
@@ -687,6 +861,13 @@ const Router = {
         
         const isLocked = !isAdmin && !isPreviousCompleted && lesson.id !== 1;
         card.className = `lesson-card ${isLocked ? 'locked' : ''}`;
+        
+        if (lesson.id === nextLessonId) {
+          card.classList.add('next-lesson');
+        }
+        if (starsEarned > 0) {
+          card.classList.add('completed-lesson');
+        }
         
         // Build card HTML
         let starsHtml = '';
@@ -723,17 +904,82 @@ const Router = {
       mapContainer.appendChild(levelWrapper);
     });
     
+    // Add dynamic active path line and monkey marker
+    let activeLine = document.getElementById('dashboard-active-line');
+    if (!activeLine) {
+      activeLine = document.createElement('div');
+      activeLine.id = 'dashboard-active-line';
+      activeLine.className = 'dashboard-map-line-active';
+      mapContainer.appendChild(activeLine);
+    }
+    
+    let monkeyMarker = document.getElementById('dashboard-monkey-marker');
+    if (!monkeyMarker) {
+      monkeyMarker = document.createElement('div');
+      monkeyMarker.id = 'dashboard-monkey-marker';
+      monkeyMarker.className = 'dashboard-map-monkey';
+      monkeyMarker.textContent = '🐒';
+      mapContainer.appendChild(monkeyMarker);
+    }
+    
+    // Measure coordinates and position path elements after browser layout
+    requestAnimationFrame(() => {
+      const nextCard = document.querySelector('.next-lesson');
+      if (nextCard) {
+        const cardRect = nextCard.getBoundingClientRect();
+        const containerRect = mapContainer.getBoundingClientRect();
+        
+        // Calculate vertical middle of next lesson card
+        const relativeTop = cardRect.top - containerRect.top + (cardRect.height / 2);
+        
+        activeLine.style.height = `${relativeTop}px`;
+        monkeyMarker.style.top = `${relativeTop - 16}px`;
+      } else {
+        activeLine.style.height = '0px';
+        monkeyMarker.style.top = '0px';
+      }
+    });
+    
     // Display total stars count
     document.getElementById('dashboard-star-value').textContent = totalStarsEarned;
     
-    // If all lessons completed (or at least some criteria), unlock certificate button
-    const totalLessonsCount = TYPING_LESSONS.reduce((acc, lvl) => acc + lvl.lessons.length, 0);
-    const completedCount = Object.keys(AppState.progress.completedLessons).length;
+    this.updateCertificateAvailability();
+  },
+  
+  updateCertificateAvailability() {
+    const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+    const isAdmin = userSession && userSession.isAdmin === true;
+    
+    // Check if at least 10 lessons (levels 1-10) are completed
+    let completedLevelsCount = 0;
+    for (let i = 1; i <= 10; i++) {
+      if (AppState.progress.completedLessons[i] > 0) {
+        completedLevelsCount++;
+      }
+    }
+    const isEligible = isAdmin || (completedLevelsCount >= 10);
+    
+    // Header button
     const certBtn = document.getElementById('cert-trigger-btn');
-    if (completedCount >= totalLessonsCount && certBtn) {
+    if (certBtn) {
       certBtn.style.display = 'flex';
-    } else if (certBtn) {
-      certBtn.style.display = 'none';
+      if (isEligible) {
+        certBtn.innerHTML = '🏆 Certificate!';
+        certBtn.style.background = 'linear-gradient(135deg, #fbbf24, #f59e0b)';
+        certBtn.style.borderColor = '#d97706';
+        certBtn.style.boxShadow = '0 4px 14px rgba(245, 158, 11, 0.4)';
+      } else {
+        certBtn.innerHTML = '🔒 Certificate';
+        certBtn.style.background = '#94a3b8';
+        certBtn.style.borderColor = '#64748b';
+        certBtn.style.boxShadow = 'none';
+      }
+    }
+    
+    // Stats page section
+    const certSection = document.getElementById('cert-print-section');
+    if (certSection) {
+      certSection.style.display = 'block';
     }
   },
   
@@ -750,33 +996,80 @@ const Router = {
     // Game high score
     const gameScore = AppState.progress.highScores['balloon'] || 0;
     document.getElementById('stats-balloon-highscore').textContent = gameScore;
+    
+    this.updateCertificateAvailability();
   }
 };
+
+// Word lists for game modes
+const MEDIUM_WORDS = [
+  "cat", "dog", "fox", "lion", "bear", "fish", "bird", "tree", "leaf", "star",
+  "moon", "sun", "cloud", "rain", "wind", "snow", "fire", "water", "earth", "rock",
+  "sand", "ship", "boat", "car", "train", "plane", "bike", "road", "park", "home",
+  "door", "room", "book", "pen", "desk", "hand", "foot", "head", "face", "eye",
+  "ear", "nose", "hair", "gold", "pink", "blue", "red", "green", "milk", "bread",
+  "apple", "pear", "plum", "grape", "peach", "lemon", "lime", "melon", "berry", "cake"
+];
+
+const HARD_WORDS = [
+  "monkey", "giraffe", "elephant", "penguin", "dolphin", "octopus", "dinosaur", "kangaroo",
+  "butterfly", "computer", "keyboard", "notebook", "airplane", "mountain", "fountain", "treasure",
+  "adventure", "rainbow", "umbrella", "backpack", "sandcastle", "spaceship", "telescope", "microscope",
+  "chocolate", "watermelon", "pineapple", "strawberry", "blueberry", "chameleon", "squirrel",
+  "hedgehog", "alligator", "crocodile", "flamingo", "kangaroo", "platypus", "astronaut", "scientist",
+  "detective", "explorer", "guitarist", "drummer", "violinist", "orchestra", "symphony", "university",
+  "dictionary", "navigation", "lighthouse", "wonderland"
+];
 
 // Balloon Pop Mini-Game Engine
 const BalloonGame = {
   score: 0,
   lives: 3,
   balloons: [],
-  spawnInterval: null,
+  spawnTimer: null,
   gameLoop: null,
   active: false,
   arenaEl: null,
+  mode: 'easy',
+  targetedBalloon: null,
+  targetCharIndex: 0,
   
-  start() {
+  getLevel() {
+    if (!this.startTime) return 1;
+    const elapsedSeconds = Math.floor((new Date() - this.startTime) / 1000);
+    
+    if (elapsedSeconds < 30) return 1;
+    if (elapsedSeconds < 60) return 2;
+    if (elapsedSeconds < 90) return 3;
+    if (elapsedSeconds < 120) return 4;
+    return 5;
+  },
+  
+  getLetterPool() {
+    return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  },
+  
+  start(mode) {
     this.arenaEl = document.getElementById('game-arena-block');
     this.score = 0;
     this.lives = 3;
     this.balloons = [];
     this.active = true;
+    this.startTime = new Date();
+    this.mode = mode || this.mode || 'easy';
+    this.targetedBalloon = null;
+    this.targetCharIndex = 0;
     
-    document.getElementById('game-score-val').textContent = '0';
-    document.getElementById('game-lives-val').textContent = '❤️❤️❤️';
+    // Hide game introduction header while playing
+    const introHeader = document.getElementById('game-intro-header');
+    if (introHeader) introHeader.style.display = 'none';
     
-    // Clear arena content
+    // Clear arena content and set up HUD
     this.arenaEl.innerHTML = `
       <div class="game-score-board">
-        <div class="game-hud">Score: <span id="game-score-val">0</span></div>
+        <div class="game-hud">Level: <span id="game-level-val">1</span> / 5</div>
+        <div class="game-hud">Blasted: <span id="game-score-val">0</span></div>
+        <div class="game-hud">Time Left: <span id="game-time-val">3:00</span></div>
         <div class="game-hud">Lives: <span id="game-lives-val">❤️❤️❤️</span></div>
       </div>
     `;
@@ -786,54 +1079,219 @@ const BalloonGame = {
     // Attach listener
     window.addEventListener('keydown', this.handleKeystrokeBound);
     
-    // Spawn loops
-    let spawnRate = 1800; // milliseconds
-    this.spawnInterval = setInterval(() => this.spawnBalloon(), spawnRate);
+    // Start game timer interval (1 second ticks)
+    this.gameTimerInterval = setInterval(() => {
+      const elapsedSeconds = Math.floor((new Date() - this.startTime) / 1000);
+      const timeLeft = 180 - elapsedSeconds;
+      
+      if (timeLeft <= 0) {
+        this.gameOver();
+        return;
+      }
+      
+      // Update timer HUD
+      const mins = Math.floor(timeLeft / 60);
+      const secs = timeLeft % 60;
+      const timeEl = document.getElementById('game-time-val');
+      if (timeEl) {
+        timeEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+      
+      // Update Level dynamically based on time
+      const currentLevel = this.getLevel();
+      const levelEl = document.getElementById('game-level-val');
+      if (levelEl) {
+        levelEl.textContent = currentLevel;
+      }
+    }, 1000);
+    
+    // Start spawn loop
+    this.spawnLoop();
     
     // Animation frame engine
     this.update();
   },
   
+  spawnLoop() {
+    if (!this.active) return;
+    this.spawnBalloon();
+    
+    // Calculate spawn rate based on level
+    const currentLevel = this.getLevel();
+    const spawnDelay = Math.max(600, 2000 - currentLevel * 250); // Level 1: 1750ms. Level 5: 750ms.
+    
+    this.spawnTimer = setTimeout(() => this.spawnLoop(), spawnDelay);
+  },
+  
   handleKeystroke(e) {
     if (!this.active) return;
     
-    // Compare keystroke with floating balloon letters
-    const key = e.key.toLowerCase();
+    const key = e.key;
     
-    // Find matching balloon
-    let matchIdx = -1;
-    for (let i = 0; i < this.balloons.length; i++) {
-      if (this.balloons[i].letter === key) {
-        matchIdx = i;
-        break;
+    // Ignore function keys or system keys
+    if (key.length > 1) return;
+    
+    if (this.mode === 'easy') {
+      // Easy Mode: Single Letter Popping (case-sensitive)
+      let matchIdx = -1;
+      for (let i = 0; i < this.balloons.length; i++) {
+        if (this.balloons[i].letter === key) {
+          matchIdx = i;
+          break;
+        }
       }
-    }
-    
-    if (matchIdx !== -1) {
-      // Pop balloon!
-      const matched = this.balloons[matchIdx];
-      matched.el.remove();
-      this.balloons.splice(matchIdx, 1);
       
-      this.score += 10;
-      document.getElementById('game-score-val').textContent = this.score;
-      SoundSynth.playPop();
-      
-      // Burst visual particles
-      this.createPopParticles(matched.x, matched.y);
+      if (matchIdx !== -1) {
+        const matched = this.balloons[matchIdx];
+        matched.el.remove();
+        this.balloons.splice(matchIdx, 1);
+        
+        this.score += 1;
+        
+        // Update HUD
+        document.getElementById('game-score-val').textContent = this.score;
+        const levelValEl = document.getElementById('game-level-val');
+        if (levelValEl) levelValEl.textContent = this.getLevel();
+        
+        SoundSynth.playPop();
+        this.createPopParticles(matched.x, matched.y);
+      }
+    } else {
+      // Medium / Hard Mode: Full Word Typing with Targeting focus
+      if (this.targetedBalloon) {
+        const targetWord = this.targetedBalloon.word;
+        const expectedChar = targetWord[this.targetCharIndex];
+        
+        if (key === expectedChar) {
+          this.targetCharIndex++;
+          
+          // Visual feedback on the balloon
+          const typed = targetWord.substring(0, this.targetCharIndex);
+          const untyped = targetWord.substring(this.targetCharIndex);
+          
+          this.targetedBalloon.el.innerHTML = `
+            <span class="typed-part" style="color: #10b981; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${typed}</span><span class="untyped-part">${untyped}</span><div class="balloon-string"></div>
+          `;
+          
+          if (this.targetCharIndex >= targetWord.length) {
+            // Popped targeted balloon
+            const matchedIdx = this.balloons.indexOf(this.targetedBalloon);
+            if (matchedIdx !== -1) {
+              this.targetedBalloon.el.remove();
+              this.balloons.splice(matchedIdx, 1);
+            }
+            
+            this.score += 1;
+            
+            // Update HUD
+            document.getElementById('game-score-val').textContent = this.score;
+            const levelValEl = document.getElementById('game-level-val');
+            if (levelValEl) levelValEl.textContent = this.getLevel();
+            
+            SoundSynth.playPop();
+            this.createPopParticles(this.targetedBalloon.x, this.targetedBalloon.y);
+            
+            // Clear target
+            this.targetedBalloon = null;
+            this.targetCharIndex = 0;
+          } else {
+            // Success stroke sound
+            if (AppState.soundEnabled) {
+              if (AppState.theme === 'kids') SoundSynth.playPop();
+              else SoundSynth.playClick();
+            }
+          }
+        } else {
+          // Mistake sound
+          if (AppState.soundEnabled) SoundSynth.playBuzz();
+        }
+      } else {
+        // No balloon targeted yet. Find one matching the first character
+        let lowestY = -999;
+        let matchBalloon = null;
+        
+        for (let i = 0; i < this.balloons.length; i++) {
+          const b = this.balloons[i];
+          if (b.word[0] === key) {
+            if (b.y < this.arenaEl.clientHeight && b.y > lowestY) {
+              lowestY = b.y;
+              matchBalloon = b;
+            }
+          }
+        }
+        
+        if (matchBalloon) {
+          this.targetedBalloon = matchBalloon;
+          this.targetCharIndex = 1;
+          
+          // Visual target focus styling
+          this.targetedBalloon.el.style.border = '2px solid #10b981';
+          this.targetedBalloon.el.style.boxShadow = '0 0 15px #10b981';
+          
+          const typed = matchBalloon.word.substring(0, 1);
+          const untyped = matchBalloon.word.substring(1);
+          
+          this.targetedBalloon.el.innerHTML = `
+            <span class="typed-part" style="color: #10b981; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${typed}</span><span class="untyped-part">${untyped}</span><div class="balloon-string"></div>
+          `;
+          
+          if (this.targetCharIndex >= matchBalloon.word.length) {
+            const matchedIdx = this.balloons.indexOf(this.targetedBalloon);
+            if (matchedIdx !== -1) {
+              this.targetedBalloon.el.remove();
+              this.balloons.splice(matchedIdx, 1);
+            }
+            this.score += 1;
+            
+            document.getElementById('game-score-val').textContent = this.score;
+            const levelValEl = document.getElementById('game-level-val');
+            if (levelValEl) levelValEl.textContent = this.getLevel();
+            
+            SoundSynth.playPop();
+            this.createPopParticles(this.targetedBalloon.x, this.targetedBalloon.y);
+            
+            this.targetedBalloon = null;
+            this.targetCharIndex = 0;
+          } else {
+            if (AppState.soundEnabled) {
+              if (AppState.theme === 'kids') SoundSynth.playPop();
+              else SoundSynth.playClick();
+            }
+          }
+        } else {
+          // Mistake sound
+          if (AppState.soundEnabled) SoundSynth.playBuzz();
+        }
+      }
     }
   },
   
   spawnBalloon() {
     if (!this.active) return;
     
-    // Draw letters from standard lessons or level sets
-    const pool = "asdfghjklqwertyuiopzxcvbnm";
-    const letter = pool[Math.floor(Math.random() * pool.length)];
+    let displayText = "";
+    if (this.mode === 'easy') {
+      const pool = this.getLetterPool();
+      displayText = pool[Math.floor(Math.random() * pool.length)];
+    } else if (this.mode === 'medium') {
+      displayText = MEDIUM_WORDS[Math.floor(Math.random() * MEDIUM_WORDS.length)];
+    } else {
+      displayText = HARD_WORDS[Math.floor(Math.random() * HARD_WORDS.length)];
+    }
     
     const balloonEl = document.createElement('div');
     balloonEl.className = 'balloon';
-    balloonEl.textContent = letter;
+    
+    // Style balloon for words so they fit inside
+    if (this.mode !== 'easy') {
+      balloonEl.style.width = 'auto';
+      balloonEl.style.minWidth = '90px';
+      balloonEl.style.padding = '8px 16px';
+      balloonEl.style.borderRadius = '24px';
+      balloonEl.style.fontSize = '1.3rem'; // slightly smaller for longer words
+    }
+    
+    balloonEl.innerHTML = `<span class="untyped-part">${displayText}</span><div class="balloon-string"></div>`;
     
     // Random visual styles (pastel colors)
     const colors = ['#f43f5e', '#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#fbbf24', '#f97316'];
@@ -841,23 +1299,23 @@ const BalloonGame = {
     balloonEl.style.backgroundColor = color;
     balloonEl.style.color = '#fff';
     
-    const stringEl = document.createElement('div');
-    stringEl.className = 'balloon-string';
-    balloonEl.appendChild(stringEl);
-    
     // Horizontal random placement
-    const widthLimit = this.arenaEl.clientWidth - 80;
+    const widthLimit = this.arenaEl.clientWidth - (this.mode === 'easy' ? 80 : 130);
     const x = Math.random() * widthLimit + 10;
     balloonEl.style.left = `${x}px`;
     balloonEl.style.top = `${this.arenaEl.clientHeight}px`;
     
     this.arenaEl.appendChild(balloonEl);
     
-    // Speed variables
-    const speed = Math.random() * 1.5 + 1.2;
+    // Speed variables (base speed increases as level goes up)
+    const currentLevel = this.getLevel();
+    const baseSpeed = 1.0 + currentLevel * 0.6; // Level 1: 1.6. Level 5: 4.0.
+    const speed = Math.random() * 0.8 + baseSpeed;
+    
     this.balloons.push({
       el: balloonEl,
-      letter: letter,
+      letter: displayText,
+      word: displayText,
       x: x,
       y: this.arenaEl.clientHeight,
       speed: speed
@@ -874,7 +1332,12 @@ const BalloonGame = {
       
       // Check boundaries
       if (b.y < -90) {
-        // Balloon floated away
+        // If this balloon was targeted, reset targeted focus
+        if (this.targetedBalloon === b) {
+          this.targetedBalloon = null;
+          this.targetCharIndex = 0;
+        }
+        
         b.el.remove();
         this.balloons.splice(i, 1);
         
@@ -930,9 +1393,14 @@ const BalloonGame = {
   
   gameOver() {
     this.active = false;
-    clearInterval(this.spawnInterval);
+    clearTimeout(this.spawnTimer);
+    clearInterval(this.gameTimerInterval);
     cancelAnimationFrame(this.gameLoop);
     window.removeEventListener('keydown', this.handleKeystrokeBound);
+    
+    // Show game introduction header again
+    const introHeader = document.getElementById('game-intro-header');
+    if (introHeader) introHeader.style.display = 'block';
     
     // Save high score
     const oldScore = AppState.progress.highScores['balloon'] || 0;
@@ -957,9 +1425,18 @@ const BalloonGame = {
     modal.style.gap = '20px';
     modal.style.zIndex = '50';
     
+    const isVictory = this.lives > 0;
+    
+    if (isVictory) {
+      triggerConfetti();
+      setTimeout(() => { if (!this.active) triggerConfetti(); }, 800);
+      setTimeout(() => { if (!this.active) triggerConfetti(); }, 1600);
+    }
+    
     modal.innerHTML = `
-      <h2 style="font-size: 3rem; text-shadow: 0 4px 10px rgba(0,0,0,0.5);">Game Over!</h2>
-      <p style="font-size: 1.4rem;">Final Score: <strong style="color: #fbbf24">${this.score}</strong> points</p>
+      <h2 style="font-size: 3rem; text-shadow: 0 4px 10px rgba(0,0,0,0.5);">${isVictory ? 'Victory! 🏆' : 'Game Over! 💀'}</h2>
+      <p style="font-size: 1.4rem;">Level Reached: <strong style="color: #fbbf24">${this.getLevel()}</strong> / 5</p>
+      <p style="font-size: 1.4rem;">Total Balloons Blasted: <strong style="color: #fbbf24">${this.score}</strong></p>
       <button id="game-restart-btn" class="btn btn-primary" style="padding: 12px 28px;">Play Again 🎮</button>
     `;
     
@@ -1229,16 +1706,49 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   // Mini games launch routing
-  document.getElementById('game-card-balloon').addEventListener('click', () => {
-    document.getElementById('game-setup-grid').style.display = 'none';
-    BalloonGame.start();
-  });
+  const lettersEasyCard = document.getElementById('game-card-letters-easy');
+  if (lettersEasyCard) {
+    lettersEasyCard.addEventListener('click', () => {
+      document.getElementById('game-setup-grid').style.display = 'none';
+      BalloonGame.start('easy');
+    });
+  }
+  const wordsMediumCard = document.getElementById('game-card-words-medium');
+  if (wordsMediumCard) {
+    wordsMediumCard.addEventListener('click', () => {
+      document.getElementById('game-setup-grid').style.display = 'none';
+      BalloonGame.start('medium');
+    });
+  }
+  const wordsHardCard = document.getElementById('game-card-words-hard');
+  if (wordsHardCard) {
+    wordsHardCard.addEventListener('click', () => {
+      document.getElementById('game-setup-grid').style.display = 'none';
+      BalloonGame.start('hard');
+    });
+  }
   
   // Certificate trigger generator
   const nameInput = document.getElementById('cert-name-input');
   const certShowBtn = document.getElementById('cert-show-btn');
   if (certShowBtn && nameInput) {
     certShowBtn.addEventListener('click', () => {
+      const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+      const isAdmin = userSession && userSession.isAdmin === true;
+      
+      let completedLevelsCount = 0;
+      for (let i = 1; i <= 10; i++) {
+        if (AppState.progress.completedLessons[i] > 0) {
+          completedLevelsCount++;
+        }
+      }
+      const isEligible = isAdmin || (completedLevelsCount >= 10);
+      
+      if (!isEligible) {
+        alert("🔒 Certificate Locked\n\nTo unlock and download your TypeBuddy Certificate, you need to complete at least 10 lessons. Keep practicing! 🐒");
+        return;
+      }
+
       const name = nameInput.value.trim() || "Young Typist";
       AppState.progress.name = name;
       AppState.saveProgress();
@@ -1248,15 +1758,108 @@ document.addEventListener('DOMContentLoaded', () => {
       const totalStars = Object.values(AppState.progress.completedLessons).reduce((a, b) => a + b, 0);
       document.getElementById('certificate-star-count').textContent = totalStars;
       
+      const dateEl = document.getElementById('certificate-date');
+      if (dateEl) {
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        dateEl.textContent = new Date().toLocaleDateString('en-US', options);
+      }
+      
+      // Calculate typing metrics averages
+      let avgWpm = 0;
+      let avgAccuracy = 100;
+      let avgMistakes = 0;
+      
+      const history = AppState.progress.history || [];
+      
+      if (history.length > 0) {
+        const totalWpm = history.reduce((sum, item) => sum + item.wpm, 0);
+        const totalAccuracy = history.reduce((sum, item) => sum + item.accuracy, 0);
+        const totalMistakes = history.reduce((sum, item) => sum + item.errors, 0);
+        
+        avgWpm = Math.round(totalWpm / history.length);
+        avgAccuracy = Math.round(totalAccuracy / history.length);
+        avgMistakes = parseFloat((totalMistakes / history.length).toFixed(1));
+      } else if (isAdmin) {
+        // Seed default parameters for admin if history is empty
+        avgWpm = 45;
+        avgAccuracy = 96;
+        avgMistakes = 2.0;
+      }
+      
+      // Update certificate stats DOM elements
+      const avgWpmEl = document.getElementById('certificate-avg-wpm');
+      const avgAccuracyEl = document.getElementById('certificate-avg-accuracy');
+      const avgMistakesEl = document.getElementById('certificate-avg-mistakes');
+      
+      if (avgWpmEl) avgWpmEl.textContent = `${avgWpm} WPM`;
+      if (avgAccuracyEl) avgAccuracyEl.textContent = `${avgAccuracy}%`;
+      if (avgMistakesEl) avgMistakesEl.textContent = avgMistakes;
+      
       Router.navigateTo('certificate');
     });
   }
+
+  // Header Certificate button custom click listener
+  const certTriggerBtn = document.getElementById('cert-trigger-btn');
+  if (certTriggerBtn) {
+    certTriggerBtn.addEventListener('click', () => {
+      const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+      const isAdmin = userSession && userSession.isAdmin === true;
+      
+      let completedLevelsCount = 0;
+      for (let i = 1; i <= 10; i++) {
+        if (AppState.progress.completedLessons[i] > 0) {
+          completedLevelsCount++;
+        }
+      }
+      const isEligible = isAdmin || (completedLevelsCount >= 10);
+      
+      if (isEligible) {
+        Router.navigateTo('stats');
+      } else {
+        alert("🔒 Certificate Locked\n\nTo unlock and download your TypeBuddy Certificate, you need to complete at least 10 lessons. Keep practicing! 🐒");
+      }
+    });
+  }
   
-  // Print button mapping
-  const printBtn = document.getElementById('print-certificate-btn');
-  if (printBtn) {
-    printBtn.addEventListener('click', () => {
-      window.print();
+  // Download button mapping using html2canvas
+  const downloadBtn = document.getElementById('download-certificate-btn');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      const certPaper = document.querySelector('.certificate-paper');
+      if (certPaper) {
+        // Disable button text and show downloading spinner
+        const originalText = downloadBtn.textContent;
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = "Downloading... ⏳";
+        
+        // Render element to Canvas using html2canvas
+        html2canvas(certPaper, {
+          scale: 2, // Double scale for crystal clear, high-DPI rendering
+          useCORS: true,
+          backgroundColor: null,
+          logging: false
+        }).then(canvas => {
+          // Convert canvas to data URL
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Trigger file download
+          const link = document.createElement('a');
+          const nameVal = document.getElementById('certificate-print-name').textContent.trim().replace(/\s+/g, '_');
+          link.download = `TypeBuddy_Certificate_${nameVal}.png`;
+          link.href = imgData;
+          link.click();
+          
+          // Restore button state
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = originalText;
+        }).catch(err => {
+          console.error("html2canvas error:", err);
+          alert("❌ Failed to download certificate image.");
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = originalText;
+        });
+      }
     });
   }
   
@@ -1279,6 +1882,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
+  // Window resize handler for monkey position
+  window.addEventListener('resize', () => {
+    const mapContainer = document.getElementById('dashboard-levels-container');
+    if (mapContainer) {
+      const activeLine = document.getElementById('dashboard-active-line');
+      const monkeyMarker = document.getElementById('dashboard-monkey-marker');
+      const nextCard = document.querySelector('.next-lesson');
+      if (activeLine && monkeyMarker && nextCard) {
+        const cardRect = nextCard.getBoundingClientRect();
+        const containerRect = mapContainer.getBoundingClientRect();
+        const relativeTop = cardRect.top - containerRect.top + (cardRect.height / 2);
+        activeLine.style.height = `${relativeTop}px`;
+        monkeyMarker.style.top = `${relativeTop - 16}px`;
+      }
+    }
+  });
+
   // Initialize typing listener engine
   TypingTutor.init();
   

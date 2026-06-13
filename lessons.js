@@ -217,7 +217,7 @@ const TYPING_LESSONS = [
   },
   {
     level: 11,
-    levelName: "Level 11: Numbers, Shift, and Punctuation",
+    levelName: "Level 11: Shift Key Usage",
     lessons: [
       {
         id: 11,
@@ -234,7 +234,13 @@ const TYPING_LESSONS = [
           "q": "L5", "r": "L2", "s": "L4", "t": "L2", "u": "R2", "v": "L2", "w": "L4", "x": "L4",
           "y": "R2", "z": "L5", " ": "RT"
         }
-      },
+      }
+    ]
+  },
+  {
+    level: 12,
+    levelName: "Level 12: The Number Row",
+    lessons: [
       {
         id: 12,
         title: "Lesson 12: The Number Row",
@@ -251,26 +257,49 @@ const TYPING_LESSONS = [
     ]
   },
   {
-    level: 12,
-    levelName: "Level 12: Sentence Practice",
+    level: 13,
+    levelName: "Level 13: Shift Numbers (Symbols)",
     lessons: [
       {
         id: 13,
-        title: "Lesson 13: Pangrams (All Alphabet Letters)",
-        instructions: "Let's type sentences that use every letter of the alphabet. Keep a steady typing rhythm.",
-        keys: [],
-        text: "A quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. Five prizes were quickly distributed by the judge.",
-        isInitialKeyStage: false,
+        title: "Lesson 13: Shift Numbers (Symbols)",
+        instructions: "Hold Shift and press the number keys to type symbols like !, @, #, $, %, ^, &, *, (, ).",
+        keys: ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "shift"],
+        text: "! @ # $ % ^ & * ( ) !@ #$ %^ &* () !# $% &* ()",
+        isInitialKeyStage: true,
         fingerGuide: {
-          "A": "L5", "P": "R5", "F": "L2"
+          "!": "L5", "@": "L4", "#": "L3", "$": "L2", "%": "L2",
+          "^": "R2", "&": "R2", "*": "R3", "(": "R4", ")": "R5",
+          " ": "RT"
         }
-      },
+      }
+    ]
+  },
+  {
+    level: 14,
+    levelName: "Level 14: Stories & Sentences with Numerics",
+    lessons: [
       {
         id: 14,
-        title: "Lesson 14: Inspiring Paragraphs",
-        instructions: "Let's practice typing paragraphs. This lesson is designed to test your overall speed and accuracy.",
+        title: "Lesson 14: Stories & Sentences with Numerics",
+        instructions: "Type the story paragraph carefully. It includes some numbers and capital letters.",
         keys: [],
-        text: "Our National Flag has three colors. Saffron stands for sacrifice. White represents peace. Green is for growth. The wheel in the center is the Ashok Chakra, which is a symbol of progress.",
+        text: "The 3 little pigs built their houses. The 1st pig built a straw house, the 2nd built with wood, and the 3rd built a strong brick house. By 1999, they all lived happily in the brick house, safe from the big bad wolf.",
+        isInitialKeyStage: false,
+        fingerGuide: {}
+      }
+    ]
+  },
+  {
+    level: 15,
+    levelName: "Level 15: Poems & Paragraphs with Numerics",
+    lessons: [
+      {
+        id: 15,
+        title: "Lesson 15: Poems & Paragraphs with Numerics",
+        instructions: "Type this classic poem, which includes numbers and capitalization.",
+        keys: [],
+        text: "1, 2, buckle my shoe; 3, 4, knock at the door; 5, 6, pick up sticks; 7, 8, lay them straight; 9, 10, a big fat hen. That is how the old poem goes for 100 years.",
         isInitialKeyStage: false,
         fingerGuide: {}
       }

@@ -6,6 +6,7 @@
   <title>TypeBuddy - Anyone Can Learn Typing!</title>
   <meta name="description" content="An interactive, gamified typing tutor designed for kids and adults. Sourced from standard typing textbooks.">
   <link rel="stylesheet" href="styles.css?v=1.0.2">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script>
     // Route protection: redirect to signin.html if no session is stored
     (function() {
@@ -38,13 +39,13 @@
 
       <button class="btn btn-secondary" data-link="dashboard">🗺️ Lesson Map</button>
       <button class="btn btn-secondary" data-link="games">🎮 Games</button>
-      <button class="btn btn-secondary" data-link="stats">📊 Stats</button>
+      <button class="btn btn-secondary" data-link="stats">Stats</button>
       
       <!-- Admin Panel Button (Visible only to admins) -->
       <button id="admin-panel-btn" class="btn btn-secondary" data-link="admin" style="display: none; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #dc2626;">🔑 Admin Panel</button>
       
       <!-- Certificate Button (Visible only on completion) -->
-      <button id="cert-trigger-btn" class="btn btn-primary" data-link="stats" style="display: none; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-color: #d97706; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);">
+      <button id="cert-trigger-btn" class="btn btn-primary" style="display: none; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-color: #d97706; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);">
         🏆 Certificate!
       </button>
 
@@ -287,19 +288,38 @@
     <!-- 4. GAMES VIEW -->
     <section id="games-view" class="view-section">
       <div class="games-layout">
-        <div class="text-center">
+        <div class="text-center" id="game-intro-header">
           <h2>TypeBuddy Arcade</h2>
           <p style="color: var(--text-muted)">Select a game and test your keyboard speed while having fun!</p>
         </div>
         
         <!-- Game options setup -->
         <div class="game-setup" id="game-setup-grid">
-          <div class="glass-card game-card" id="game-card-balloon">
+          
+          <!-- Option 1: Letters (Easy) -->
+          <div class="glass-card game-card" id="game-card-letters-easy">
             <span class="game-card-icon">🎈</span>
-            <h3>Balloon Pop</h3>
-            <p>Balloons with letters will float up from the bottom. Type the correct keys to pop them before they fly away! Sourced from active letters.</p>
+            <h3>Letters (Easy)</h3>
+            <p>Balloons with single letters float up. Pop them by typing the matching letter! Perfect for beginners.</p>
             <button class="btn btn-primary mt-4">Start Game 🕹️</button>
           </div>
+          
+          <!-- Option 2: Words (Medium) -->
+          <div class="glass-card game-card" id="game-card-words-medium">
+            <span class="game-card-icon">🚀</span>
+            <h3>Words (Medium)</h3>
+            <p>Balloons containing words up to 5 letters. Type the complete word correctly to pop them!</p>
+            <button class="btn btn-primary mt-4">Start Game 🕹️</button>
+          </div>
+          
+          <!-- Option 3: Words (Hard) -->
+          <div class="glass-card game-card" id="game-card-words-hard">
+            <span class="game-card-icon">🔥</span>
+            <h3>Words (Hard)</h3>
+            <p>Balloons containing words from 5 to 10 letters. Faster speeds and longer words to test your typing mastery!</p>
+            <button class="btn btn-primary mt-4">Start Game 🕹️</button>
+          </div>
+          
         </div>
         
         <!-- Game Canvas Screen -->
@@ -329,7 +349,7 @@
           </div>
         </div>
         
-        <div style="border-top: 1px solid var(--card-border); padding-top: 24px;">
+        <div id="cert-print-section" style="border-top: 1px solid var(--card-border); padding-top: 24px;">
           <h3 class="mb-4">Print Your Typing Champion Certificate!</h3>
           <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px;">Have you completed all lessons? Type in your name below to download your printable TypeBuddy Certificate!</p>
           
@@ -350,15 +370,40 @@
           <div class="cert-sub">This is proudly awarded to</div>
           <div class="cert-name" id="certificate-print-name">Young Typist</div>
           <div class="cert-body">for successfully mastering the keyboard, learning proper touch-typing fingers alignment, and earning <strong style="color: #d97706"><span id="certificate-star-count">0</span> stars</strong> on the TypeBuddy Typing Course!</div>
-          <div class="cert-badge">🎖️</div>
+          
+          <!-- Typing Metrics Parameters -->
+          <div class="cert-params-container">
+            <div class="cert-param-item">
+              <span class="cert-param-label">Average Speed</span>
+              <span class="cert-param-value" id="certificate-avg-wpm">0 WPM</span>
+            </div>
+            <div class="cert-param-divider"></div>
+            <div class="cert-param-item">
+              <span class="cert-param-label">Average Accuracy</span>
+              <span class="cert-param-value" id="certificate-avg-accuracy">100%</span>
+            </div>
+            <div class="cert-param-divider"></div>
+            <div class="cert-param-item">
+              <span class="cert-param-label">Average Mistakes</span>
+              <span class="cert-param-value" id="certificate-avg-mistakes">0</span>
+            </div>
+          </div>
+          
+          <div class="cert-badge-container">
+            <div class="cert-ribbon-left"></div>
+            <div class="cert-ribbon-right"></div>
+            <div class="cert-gold-seal">
+              <span class="cert-gold-seal-star">★</span>
+            </div>
+          </div>
           <div class="cert-footer">
-            <div>Signed: <strong>Koko the Monkey</strong></div>
-            <div>Date: <strong id="certificate-date">June 2026</strong></div>
+            <div>Signed: <strong>TypeBuddy</strong></div>
+            <div>Date: <strong id="certificate-date"></strong></div>
           </div>
         </div>
         
         <div class="flex-row-center cert-btn-group">
-          <button id="print-certificate-btn" class="btn btn-primary" style="padding: 12px 28px;">Print/Download Certificate 🖨️</button>
+          <button id="download-certificate-btn" class="btn btn-primary" style="padding: 12px 28px;">Download Certificate 🏆</button>
           <button class="btn btn-secondary" data-link="stats">Back to Stats</button>
         </div>
         
@@ -441,6 +486,11 @@
       </button>
     </div>
   </div>
+
+  <!-- Firebase Compat Libraries -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
 
   <!-- Script Declarations -->
   <script src="lessons.js?v=1.0.2"></script>

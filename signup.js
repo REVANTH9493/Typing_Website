@@ -111,6 +111,100 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Real-time Name checking (must be unique)
+  let nameCheckTimeout;
+  nameInput.addEventListener('input', () => {
+    const nameVal = nameInput.value.trim();
+    
+    // Clear validation styling
+    const group = nameInput.closest('.input-group');
+    if (group) {
+      group.classList.remove('invalid');
+      const errorSpan = group.querySelector('.validation-message');
+      if (errorSpan) errorSpan.textContent = "";
+    }
+    
+    if (!nameVal) return;
+    
+    // 1. Check local registry instantly
+    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+    const nameExists = registeredUsers.some(u => u.name.trim().toLowerCase() === nameVal.toLowerCase());
+    if (nameExists) {
+      setError(nameInput, "Username already exists. Please choose a different name.");
+      return;
+    }
+    
+    // 2. Debounced check in Firestore (if active)
+    clearTimeout(nameCheckTimeout);
+    const isFirebasePlaceholder = 
+      typeof firebaseConfig === 'undefined' || 
+      firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
+      firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+      
+    if (!isFirebasePlaceholder) {
+      nameCheckTimeout = setTimeout(async () => {
+        try {
+          const userQuery = await db.collection("users").where("name", "==", nameVal).get();
+          if (!userQuery.empty) {
+            setError(nameInput, "Username already exists. Please choose a different name.");
+          }
+        } catch (err) {
+          console.error("Firestore query error:", err);
+        }
+      }, 500);
+    }
+  });
+
+  // Real-time Email checking (must be unique)
+  let emailCheckTimeout;
+  emailInput.addEventListener('input', () => {
+    const emailVal = emailInput.value.trim();
+    
+    // Clear validation styling
+    const group = emailInput.closest('.input-group');
+    if (group) {
+      group.classList.remove('invalid');
+      const errorSpan = group.querySelector('.validation-message');
+      if (errorSpan) errorSpan.textContent = "";
+    }
+    
+    if (!emailVal) return;
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailVal)) {
+      setError(emailInput, "Please enter a valid email address.");
+      return;
+    }
+    
+    // 1. Check local registry instantly
+    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+    const emailExists = registeredUsers.some(u => u.email.trim().toLowerCase() === emailVal.toLowerCase());
+    if (emailExists) {
+      setError(emailInput, "Email address is already registered. Please use a different email.");
+      return;
+    }
+    
+    // 2. Debounced check in Firestore (if active)
+    clearTimeout(emailCheckTimeout);
+    const isFirebasePlaceholder = 
+      typeof firebaseConfig === 'undefined' || 
+      firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
+      firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+      
+    if (!isFirebasePlaceholder) {
+      emailCheckTimeout = setTimeout(async () => {
+        try {
+          const emailQuery = await db.collection("users").where("email", "==", emailVal).get();
+          if (!emailQuery.empty) {
+            setError(emailInput, "Email address is already registered. Please use a different email.");
+          }
+        } catch (err) {
+          console.error("Firestore query error:", err);
+        }
+      }, 500);
+    }
+  });
+
   // Form submission handler
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -118,11 +212,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isValid = true;
 
-    // 1. Name validation
+    // 1. Name validation (must be unique)
     const nameVal = nameInput.value.trim();
     if (!nameVal) {
       setError(nameInput, "Full Name is required.");
       isValid = false;
+    } else {
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const nameExists = registeredUsers.some(u => u.name.trim().toLowerCase() === nameVal.toLowerCase());
+      if (nameExists) {
+        setError(nameInput, "Username already exists. Please choose a different name.");
+        isValid = false;
+      }
     }
 
     // 2. Age validation (must be greater than 5)
@@ -135,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isValid = false;
     }
 
-    // 3. Email validation
+    // 3. Email validation (must be unique)
     const emailVal = emailInput.value.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailVal) {
@@ -144,6 +245,13 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (!emailRegex.test(emailVal)) {
       setError(emailInput, "Please enter a valid email address.");
       isValid = false;
+    } else {
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const emailExists = registeredUsers.some(u => u.email.trim().toLowerCase() === emailVal.toLowerCase());
+      if (emailExists) {
+        setError(emailInput, "Email address is already registered. Please use a different email.");
+        isValid = false;
+      }
     }
 
     // 3b. Password validation
@@ -198,6 +306,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Write to Firebase Firestore
     try {
+      // Check if username already exists in Firestore
+      const userQuery = await db.collection("users").where("name", "==", nameVal).get();
+      if (!userQuery.empty) {
+        setError(nameInput, "Username already exists. Please choose a different name.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Start Learning! 🚀";
+        generalAlert.style.display = 'flex';
+        generalAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+
+      // Check if email already exists in Firestore
+      const emailQuery = await db.collection("users").where("email", "==", emailVal).get();
+      if (!emailQuery.empty) {
+        setError(emailInput, "Email address is already registered. Please use a different email.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Start Learning! 🚀";
+        generalAlert.style.display = 'flex';
+        generalAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+
       await db.collection("users").add({
         name: nameVal,
         age: ageVal,
