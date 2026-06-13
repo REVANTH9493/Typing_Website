@@ -1192,12 +1192,12 @@ main {
   background-size: 400% 400%;
   animation: meshGradient 15s ease infinite;
   font-family: var(--font-kids), sans-serif;
-  overflow-y: auto;
+  overflow: hidden;
   box-sizing: border-box;
   display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
 }
 
 @keyframes meshGradient {
@@ -1214,35 +1214,30 @@ main {
   box-sizing: border-box;
 }
 
-/* Base wrapper - Centered glass card wrapper */
+/* Base wrapper - Fullscreen double pane split layout */
 .signin-wrapper {
   display: flex;
-  width: 90%;
-  max-width: 1020px;
-  height: auto;
-  max-height: 90vh;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1), 
-              0 0 40px rgba(139, 92, 246, 0.05),
-              inset 0 1px 2px rgba(255, 255, 255, 0.5);
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100vh;
+  border-radius: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   overflow: hidden;
   position: relative;
   z-index: 10;
-  animation: cardFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: wrapperFadeIn 0.5s ease-out both;
 }
 
-@keyframes cardFadeIn {
+@keyframes wrapperFadeIn {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(12px);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 
@@ -1572,15 +1567,15 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 30px;
+  padding: 40px 48px;
   height: 100%;
-  max-height: 90vh;
+  max-height: 100vh;
   overflow-y: auto;
 }
 
 .form-container {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   padding: 0;
   background: transparent;
   border: none;
