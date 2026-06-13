@@ -4,138 +4,41 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TypeBuddy - Sign In</title>
-  <meta name="description" content="Sign In to TypeBuddy to begin your touch typing adventure.">
-  <!-- Stylesheet -->
+  <meta name="description" content="Sign In to TypeBuddy to continue your touch typing adventure.">
+  <!-- Stylesheets -->
   <link rel="stylesheet" href="styles.css?v=1.0.2">
   <link rel="stylesheet" href="signin.css">
 </head>
 <body class="signin-body">
 
   <div class="signin-wrapper">
-    <!-- Left Pane: Typing Mascot & Animation -->
+    <!-- Left Pane: Drifting Floating Keys Hero Animation -->
     <div class="signin-left">
+      <!-- Glow background circles for light overlay effects -->
+      <div class="glow-orb glow-orb-1"></div>
+      <div class="glow-orb glow-orb-2"></div>
+      
       <div class="animation-container glass-card">
-        <!-- Mascot Speech Bubble -->
-        <div class="mascot-speech-bubble-left">
-          Ready to become a typing master? 🐒
+        <!-- Welcoming Hero Content -->
+        <div class="hero-header">
+          <span class="welcome-badge">👋 Welcome Back!</span>
+          <h1 class="hero-title">Welcome Back to TypeBuddy</h1>
+          <p class="hero-subtitle">Continue your typing journey and improve your speed every day.</p>
+          <div class="hero-typewriter-line">Ready to <span id="hero-typewriter"></span><span class="typewriter-cursor"></span></div>
         </div>
 
-        <!-- Premium Animated Mascot SVG -->
-        <div class="mascot-svg-wrapper">
-          <svg viewBox="0 0 200 160" class="monkey-laptop-svg" width="100%" height="100%">
-            <!-- Definitions for gradients/filters -->
-            <defs>
-              <radialGradient id="screen-glow-grad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.3"/>
-                <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
-              </radialGradient>
-            </defs>
-
-            <!-- Background light glow behind laptop screen -->
-            <ellipse cx="100" cy="125" rx="35" ry="25" fill="url(#screen-glow-grad)" class="screen-glow"/>
-
-            <!-- Monkey Body / Shoulders -->
-            <path d="M 65 140 C 65 110, 135 110, 135 140 Z" fill="#7c3aed"/>
-            <path d="M 90 110 L 110 110 L 100 120 Z" fill="#f3d4b8"/> <!-- neck skin -->
-
-            <!-- Monkey Ears -->
-            <circle cx="62" cy="78" r="13" fill="#a76f44"/>
-            <circle cx="62" cy="78" r="8" fill="#fbcfe8"/>
-            <circle cx="138" cy="78" r="13" fill="#a76f44"/>
-            <circle cx="138" cy="78" r="8" fill="#fbcfe8"/>
-
-            <!-- Monkey Head Base -->
-            <circle cx="100" cy="78" r="30" fill="#a76f44"/>
-
-            <!-- Face Mask -->
-            <path d="M 78 80 C 78 64, 100 66, 100 74 C 100 66, 122 64, 122 80 C 122 93, 100 99, 100 99 C 100 99, 78 93, 78 80 Z" fill="#f3d4b8"/>
-
-            <!-- Blinking Eyes -->
-            <g class="monkey-eyes">
-              <ellipse cx="90" cy="76" rx="4" ry="5" fill="#1e293b" class="eyeball-l"/>
-              <ellipse cx="110" cy="76" rx="4" ry="5" fill="#1e293b" class="eyeball-r"/>
-            </g>
-
-            <!-- Circular Glasses Frame -->
-            <g class="monkey-glasses">
-              <circle cx="90" cy="76" r="9" stroke="#4c1d95" stroke-width="2.5" fill="none"/>
-              <circle cx="110" cy="76" r="9" stroke="#4c1d95" stroke-width="2.5" fill="none"/>
-              <path d="M 99 76 L 101 76" stroke="#4c1d95" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M 81 76 L 72 76" stroke="#4c1d95" stroke-width="2" stroke-linecap="round"/>
-              <path d="M 119 76 L 128 76" stroke="#4c1d95" stroke-width="2" stroke-linecap="round"/>
-            </g>
-
-            <!-- Mouth -->
-            <path d="M 94 88 Q 100 93 106 88" fill="none" stroke="#6b21a8" stroke-width="2.5" stroke-linecap="round"/>
-
-            <!-- Laptop Lid (Back view facing viewer) -->
-            <path d="M 73 105 L 127 105 L 137 138 L 63 138 Z" fill="#334155" stroke="#475569" stroke-width="1.5" stroke-linejoin="round"/>
-            
-            <!-- Glowing Logo on Laptop Back -->
-            <path d="M 100 115 C 103 115, 106 118, 105 122 C 103 125, 97 125, 95 122 C 94 118, 97 115, 100 115 Z" fill="#fbbf24" class="logo-glow"/>
-
-            <!-- Laptop Base (Sitting flat on table) -->
-            <path d="M 45 138 L 155 138 L 168 152 L 32 152 Z" fill="#1e293b" stroke="#334155" stroke-width="1.5" stroke-linejoin="round"/>
-
-            <!-- Typing Hands (Animated circle indicators) -->
-            <circle cx="78" cy="136" r="5" fill="#f3d4b8" class="typing-hand-l"/>
-            <circle cx="122" cy="136" r="5" fill="#f3d4b8" class="typing-hand-r"/>
-          </svg>
+        <!-- Drifting/Floating Keys Container -->
+        <div class="floating-keys-stage" id="floating-keys-container">
+          <!-- Dynamically populated via signin.js -->
         </div>
 
-        <!-- Touch Typing Demo Terminal Screen -->
-        <div class="demo-screen">
-          <div class="screen-title">💡 Touch Typing Practice</div>
-          <div class="typewriter-text" id="demo-typing-text"></div>
-        </div>
-        
-        <!-- Interactive Glowing Keyboard Demo -->
-        <div class="keyboard-demo-container">
-          <div class="keyboard-row">
-            <div class="key-demo" id="demo-key-q">Q</div>
-            <div class="key-demo" id="demo-key-w">W</div>
-            <div class="key-demo" id="demo-key-e">E</div>
-            <div class="key-demo" id="demo-key-r">R</div>
-            <div class="key-demo" id="demo-key-t">T</div>
-            <div class="key-demo" id="demo-key-y">Y</div>
-            <div class="key-demo" id="demo-key-u">U</div>
-            <div class="key-demo" id="demo-key-i">I</div>
-            <div class="key-demo" id="demo-key-o">O</div>
-            <div class="key-demo" id="demo-key-p">P</div>
+        <!-- Glowing interactive typing tracker visualizer -->
+        <div class="typing-visual-panel">
+          <div class="keyboard-glow-line"></div>
+          <div class="tracker-status">
+            <span class="status-dot animate-pulse"></span>
+            <span class="status-text">Monkey Helper Koko is waiting... 🐒</span>
           </div>
-          <div class="keyboard-row">
-            <div class="key-demo" id="demo-key-a">A</div>
-            <div class="key-demo" id="demo-key-s">S</div>
-            <div class="key-demo" id="demo-key-d">D</div>
-            <div class="key-demo" id="demo-key-f">F</div>
-            <div class="key-demo" id="demo-key-g">G</div>
-            <div class="key-demo" id="demo-key-h">H</div>
-            <div class="key-demo" id="demo-key-j">J</div>
-            <div class="key-demo" id="demo-key-k">K</div>
-            <div class="key-demo" id="demo-key-l">L</div>
-            <div class="key-demo" id="demo-key-semicolon">;</div>
-          </div>
-          <div class="keyboard-row">
-            <div class="key-demo" id="demo-key-z">Z</div>
-            <div class="key-demo" id="demo-key-x">X</div>
-            <div class="key-demo" id="demo-key-c">C</div>
-            <div class="key-demo" id="demo-key-v">V</div>
-            <div class="key-demo" id="demo-key-b">B</div>
-            <div class="key-demo" id="demo-key-n">N</div>
-            <div class="key-demo" id="demo-key-m">M</div>
-            <div class="key-demo" id="demo-key-comma">,</div>
-            <div class="key-demo" id="demo-key-period">.</div>
-          </div>
-          <div class="keyboard-row">
-            <div class="key-demo space-key" id="demo-key-space">Space</div>
-          </div>
-        </div>
-
-        <!-- Motivational Highlights below Mascot -->
-        <div class="motivational-highlights">
-          <span class="highlight-badge">⚡ Improve typing speed</span>
-          <span class="highlight-badge">🎯 Build accuracy</span>
-          <span class="highlight-badge">💪 Learn touch typing faster</span>
         </div>
       </div>
     </div>
@@ -143,105 +46,58 @@
     <!-- Right Pane: Sign In Form -->
     <div class="signin-right">
       <div class="form-container glass-card">
+        <!-- Logo -->
         <div class="logo-container" style="justify-content: center; margin-bottom: 8px;">
           <span class="logo-icon">🐒</span>
           <span class="logo-text">TypeBuddy</span>
         </div>
-        <h1 class="signin-title">Master Typing with Confidence</h1>
-        <p class="signin-subtitle">Enter your details below to start touch typing</p>
+        <h2 class="signin-form-title">Let's Keep Learning!</h2>
+        <p class="signin-form-subtitle">Sign in to resume your touch typing adventure</p>
         
-        <!-- Validation Error Message Alert Panel -->
+        <!-- Validation Error Alert Panel -->
         <div id="general-error-alert" class="error-alert-box" style="display: none;">
-          ⚠️ Please correct the errors in the form below.
+          ⚠️ Please check your sign-in details below.
         </div>
 
         <form id="signin-form" novalidate>
-          <!-- Full Name -->
+          <!-- Email Address -->
           <div class="input-group">
-            <label for="full-name">👤 Full Name</label>
-            <input type="text" id="full-name" placeholder="Enter your full name" autocomplete="name">
+            <label for="email">📧 Email Address</label>
+            <input type="email" id="email" placeholder="name@example.com" autocomplete="email" required>
+            <span class="validation-message" id="email-error"></span>
+          </div>
+
+          <!-- Full Name or Nickname -->
+          <div class="input-group">
+            <label for="full-name">👤 Full Name or Nickname</label>
+            <input type="text" id="full-name" placeholder="Enter your name or nickname" autocomplete="name" required>
             <span class="validation-message" id="name-error"></span>
           </div>
 
-          <!-- Age & Email Grid -->
-          <div class="form-grid-2">
-            <!-- Age -->
-            <div class="input-group">
-              <label for="age">🎂 Age</label>
-              <input type="number" id="age" placeholder="Age" min="6">
-              <span class="validation-message" id="age-error"></span>
-            </div>
-            
-            <!-- Email -->
-            <div class="input-group">
-              <label for="email">📧 Email Address</label>
-              <input type="email" id="email" placeholder="name@example.com" autocomplete="email">
-              <span class="validation-message" id="email-error"></span>
-            </div>
-          </div>
-
-          <!-- Typing Goal & Typing Level Grid -->
-          <div class="form-grid-2">
-            <!-- Typing Goal Dropdown -->
-            <div class="input-group">
-              <label for="typing-goal">🎯 Typing Goal</label>
-              <div class="select-wrapper">
-                <select id="typing-goal">
-                  <option value="" disabled selected>Select your goal...</option>
-                  <option value="Improve Speed">Improve Speed ⚡</option>
-                  <option value="Exam Preparation">Exam Preparation 📝</option>
-                  <option value="Coding Practice">Coding Practice 💻</option>
-                  <option value="General Typing">General Typing ⌨️</option>
-                </select>
-              </div>
-              <span class="validation-message" id="goal-error"></span>
-            </div>
-
-            <!-- Typing Level Dropdown -->
-            <div class="input-group">
-              <label for="typing-level">📊 Typing Level</label>
-              <div class="select-wrapper">
-                <select id="typing-level">
-                  <option value="Beginner" selected>Beginner 🌱</option>
-                  <option value="Intermediate">Intermediate 🚀</option>
-                  <option value="Advanced">Advanced 🏆</option>
-                </select>
-              </div>
-              <span class="validation-message" id="level-error"></span>
-            </div>
-          </div>
-
-          <!-- Math CAPTCHA -->
-          <div class="input-group captcha-group">
-            <label for="captcha-input">🔒 Safety Check (Solve the Math)</label>
-            <div class="captcha-flex">
-              <div class="captcha-question-box">
-                <span id="captcha-num1">0</span>
-                <span id="captcha-operator">+</span>
-                <span id="captcha-num2">0</span>
-                <span>=</span>
-              </div>
-              <input type="number" id="captcha-input" placeholder="Answer">
-              <button type="button" class="btn btn-secondary captcha-refresh-btn" id="captcha-refresh" title="Get new equation">🔄</button>
-            </div>
-            <span class="validation-message" id="captcha-error"></span>
+          <!-- Remember Me Checkbox -->
+          <div class="remember-me-group">
+            <label class="remember-me-label">
+              <input type="checkbox" id="remember-me">
+              <span class="checkbox-custom"></span>
+              Remember Me
+            </label>
           </div>
 
           <!-- Submit Button -->
           <button type="submit" id="submit-btn" class="btn btn-primary btn-submit">
-            Start Learning! 🚀
+            Sign In & Learn! 🚀
           </button>
         </form>
+
+        <!-- Redirect Link to Sign Up -->
+        <div class="signup-link-container">
+          <span class="signup-link-text">New to TypeBuddy? </span>
+          <a href="signup.html" class="signup-link">Create an Account</a>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Firebase Compat Libraries -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
-  <!-- Local Config & Scripts -->
-  <script src="firebase-config.js"></script>
   <script src="signin.js"></script>
 </body>
 </html>
