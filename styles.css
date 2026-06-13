@@ -65,6 +65,10 @@
   --border-radius-sm: 6px;
 }
 
+html {
+  font-size: 18px;
+}
+
 /* Global Reset & Base */
 * {
   box-sizing: border-box;
@@ -86,7 +90,7 @@ body {
 
 /* Navigation & Header */
 header {
-  padding: 20px 40px;
+  padding: 24px 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -96,22 +100,27 @@ header {
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   cursor: pointer;
 }
 
 .logo-icon {
-  font-size: 2rem;
+  font-size: 2.5rem;
   animation: wobble 4s infinite ease-in-out;
 }
 
 .logo-text {
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   font-weight: 700;
   letter-spacing: -0.5px;
   background: linear-gradient(45deg, #ec4899, #8b5cf6, #3b82f6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+header .btn {
+  font-size: 1.15rem;
+  padding: 12px 24px;
 }
 
 .nav-controls {
@@ -214,7 +223,7 @@ main {
 }
 
 .welcome-info h1 {
-  font-size: 3.5rem;
+  font-size: 4.5rem;
   line-height: 1.1;
   margin-bottom: 20px;
   font-weight: 800;
@@ -227,7 +236,7 @@ main {
 }
 
 .welcome-info p {
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   line-height: 1.6;
   color: var(--text-muted);
   margin-bottom: 30px;
@@ -473,11 +482,10 @@ main {
   background: var(--card-bg);
   border: 2px solid var(--card-border);
   border-radius: var(--border-radius-lg);
-  padding: 30px;
-  min-height: 160px;
+  padding: 24px 30px;
+  height: 405px;
   box-shadow: var(--card-shadow);
-  display: flex;
-  align-items: center;
+  display: block;
   overflow: hidden;
 }
 

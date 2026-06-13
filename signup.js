@@ -1,6 +1,14 @@
 // TypeBuddy Sign In Logic
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Seed default admin account
+  const defaultAdmins = [
+    { email: 'revanth@gmail.com', password: 'Revanth@123' }
+  ];
+  if (!localStorage.getItem('typebuddy_admin_accounts')) {
+    localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(defaultAdmins));
+  }
+
   // --- TYPEWRITER & KEYBOARD DEMO ---
   const DEMO_SENTENCES = [
     "typebuddy helps you master touch typing",
@@ -66,38 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   startDemoLoop();
 
 
-  // --- MATH CAPTCHA ---
-  const num1El = document.getElementById('captcha-num1');
-  const num2El = document.getElementById('captcha-num2');
-  const operatorEl = document.getElementById('captcha-operator');
-  const captchaInput = document.getElementById('captcha-input');
-  const refreshBtn = document.getElementById('captcha-refresh');
-  
-  let captchaAnswer = 0;
 
-  function generateCaptcha() {
-    const n1 = Math.floor(Math.random() * 12) + 4; // 4 to 15
-    const n2 = Math.floor(Math.random() * 9) + 1;  // 1 to 9
-    const operators = ['+', '-'];
-    const op = operators[Math.floor(Math.random() * operators.length)];
-
-    num1El.textContent = n1;
-    num2El.textContent = n2;
-    operatorEl.textContent = op;
-
-    if (op === '+') {
-      captchaAnswer = n1 + n2;
-    } else {
-      captchaAnswer = n1 - n2;
-    }
-    
-    // Clear previous input
-    captchaInput.value = "";
-  }
-
-  // Initialize and bind captcha
-  generateCaptcha();
-  refreshBtn.addEventListener('click', generateCaptcha);
 
 
   // --- FORM VALIDATION & FIRESTORE SAVE ---
@@ -105,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const nameInput = document.getElementById('full-name');
   const ageInput = document.getElementById('age');
   const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
   const goalSelect = document.getElementById('typing-goal');
   const levelSelect = document.getElementById('typing-level');
   const generalAlert = document.getElementById('general-error-alert');
@@ -168,6 +146,16 @@ document.addEventListener('DOMContentLoaded', () => {
       isValid = false;
     }
 
+    // 3b. Password validation
+    const passwordVal = passwordInput.value;
+    if (!passwordVal) {
+      setError(passwordInput, "Password is required.");
+      isValid = false;
+    } else if (passwordVal.length < 6) {
+      setError(passwordInput, "Password must be at least 6 characters.");
+      isValid = false;
+    }
+
     // 4. Typing Goal validation
     const goalVal = goalSelect.value;
     if (!goalVal) {
@@ -182,16 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isValid = false;
     }
 
-    // 6. CAPTCHA validation
-    const captchaVal = parseInt(captchaInput.value, 10);
-    if (isNaN(captchaVal)) {
-      setError(captchaInput, "Please enter the math check answer.");
-      isValid = false;
-    } else if (captchaVal !== captchaAnswer) {
-      setError(captchaInput, `Incorrect answer. Try again!`);
-      isValid = false;
-      generateCaptcha(); // regenerate on fail
-    }
+
 
     if (!isValid) {
       generalAlert.style.display = 'flex';
@@ -213,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn("TypeBuddy warning: Firebase keys are placeholder values. Operating in local simulation mode.");
       
       // Save details locally and proceed
-      saveSessionAndRedirect(nameVal, emailVal, goalVal, levelVal);
+      saveSessionAndRedirect(nameVal, emailVal, passwordVal, goalVal, levelVal);
       return;
     }
 
@@ -223,13 +202,14 @@ document.addEventListener('DOMContentLoaded', () => {
         name: nameVal,
         age: ageVal,
         email: emailVal,
+        password: passwordVal,
         goal: goalVal,
         level: levelVal,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
       
       console.log("User successfully signed in and added to Firestore!");
-      saveSessionAndRedirect(nameVal, emailVal, goalVal, levelVal);
+      saveSessionAndRedirect(nameVal, emailVal, passwordVal, goalVal, levelVal);
     } catch (error) {
       console.error("Firestore Error:", error);
       submitBtn.disabled = false;
@@ -239,11 +219,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  function saveSessionAndRedirect(name, email, goal, level) {
+  function saveSessionAndRedirect(name, email, password, goal, level) {
     // Save to local registry of users so Sign In page can look up their goal/level
     const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
     const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-    const userData = { name, email, goal, level, registeredAt: new Date().toISOString() };
+    const userData = { name, email, password, goal, level, registeredAt: new Date().toISOString() };
     if (existingIndex > -1) {
       registeredUsers[existingIndex] = userData;
     } else {

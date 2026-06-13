@@ -143,8 +143,8 @@
     <!-- Right Pane: Sign In Form -->
     <div class="signin-right">
       <div class="form-container glass-card">
-        <div class="logo-container" style="justify-content: center; margin-bottom: 8px;">
-          <span class="logo-icon">🐒</span>
+        <div class="logo-container" style="justify-content: center; margin-bottom: 12px; align-items: center; gap: 12px;">
+          <img src="logo.jpg" alt="TypeBuddy" style="height: 50px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
           <span class="logo-text">TypeBuddy</span>
         </div>
         <h1 class="signin-title">Master Typing with Confidence</h1>
@@ -180,6 +180,13 @@
             </div>
           </div>
 
+          <!-- Password -->
+          <div class="input-group">
+            <label for="password">🔑 Password</label>
+            <input type="password" id="password" placeholder="Create a secure password" autocomplete="new-password">
+            <span class="validation-message" id="password-error"></span>
+          </div>
+
           <!-- Typing Goal & Typing Level Grid -->
           <div class="form-grid-2">
             <!-- Typing Goal Dropdown -->
@@ -211,27 +218,19 @@
             </div>
           </div>
 
-          <!-- Math CAPTCHA -->
-          <div class="input-group captcha-group">
-            <label for="captcha-input">🔒 Safety Check (Solve the Math)</label>
-            <div class="captcha-flex">
-              <div class="captcha-question-box">
-                <span id="captcha-num1">0</span>
-                <span id="captcha-operator">+</span>
-                <span id="captcha-num2">0</span>
-                <span>=</span>
-              </div>
-              <input type="number" id="captcha-input" placeholder="Answer">
-              <button type="button" class="btn btn-secondary captcha-refresh-btn" id="captcha-refresh" title="Get new equation">🔄</button>
-            </div>
-            <span class="validation-message" id="captcha-error"></span>
-          </div>
+
 
           <!-- Submit Button -->
           <button type="submit" id="submit-btn" class="btn btn-primary btn-submit">
             Start Learning! 🚀
           </button>
         </form>
+
+        <!-- Redirect Link to Sign In -->
+        <div class="signin-link-container">
+          <span class="signin-link-text">Already have an account? </span>
+          <a href="signin.html" class="signin-link">Sign In</a>
+        </div>
       </div>
     </div>
   </div>

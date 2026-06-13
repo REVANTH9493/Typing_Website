@@ -1,5 +1,13 @@
 // TypeBuddy Core Application Logic
 
+// Seed default admin account
+const defaultAdmins = [
+  { email: 'revanth@gmail.com', password: 'Revanth@123' }
+];
+if (!localStorage.getItem('typebuddy_admin_accounts')) {
+  localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(defaultAdmins));
+}
+
 // Web Audio API Synthesizer (Zero-dependency sound effects)
 const SoundSynth = {
   ctx: null,
@@ -307,7 +315,18 @@ const TypingTutor = {
     const textContainer = document.getElementById('typing-text-block');
     textContainer.innerHTML = '';
     
-    lesson.text.split('').forEach((char, idx) => {
+    let activeText = lesson.text;
+    if (activeText.length < 500) {
+      while (activeText.length < 500) {
+        activeText += " " + lesson.text;
+      }
+    }
+    AppState.activeText = activeText;
+    
+    const container = document.querySelector('.typing-box-container');
+    if (container) container.scrollTop = 0;
+    
+    AppState.activeText.split('').forEach((char, idx) => {
       const span = document.createElement('span');
       span.className = 'char';
       span.textContent = char;
@@ -319,14 +338,14 @@ const TypingTutor = {
     setTimeout(() => {
       MascotHelper.react('lesson_start');
       if (AppState.voiceEnabled) {
-        const currentTarget = lesson.text[0];
+        const currentTarget = AppState.activeText[0];
         const readable = currentTarget === " " ? "Space" : currentTarget;
         MascotHelper.speak(`Press ${readable}`);
       }
     }, 400);
     
     // Setup visuals
-    InputVisuals.highlightTarget(lesson.text[0]);
+    InputVisuals.highlightTarget(AppState.activeText[0]);
     
     // Transition to Tutor Screen
     Router.navigateTo('tutor');
@@ -368,7 +387,7 @@ const TypingTutor = {
       }, 1000);
     }
     
-    const lessonText = AppState.currentLesson.text;
+    const lessonText = AppState.activeText;
     const targetChar = lessonText[AppState.charIndex];
     AppState.keystrokes++;
     
@@ -424,6 +443,9 @@ const TypingTutor = {
           const readable = nextChar === " " ? "Space" : nextChar;
           MascotHelper.speak(readable);
         }
+
+        // Smooth scroll check
+        this.updateScroll();
       }
     } else {
       // INCORRECT KEY
@@ -447,7 +469,10 @@ const TypingTutor = {
     textContainer.innerHTML = '';
     AppState.charIndex = 0;
     
-    AppState.currentLesson.text.split('').forEach((char, idx) => {
+    const container = document.querySelector('.typing-box-container');
+    if (container) container.scrollTop = 0;
+    
+    AppState.activeText.split('').forEach((char, idx) => {
       const span = document.createElement('span');
       span.className = 'char';
       span.textContent = char;
@@ -455,7 +480,42 @@ const TypingTutor = {
       textContainer.appendChild(span);
     });
     
-    InputVisuals.highlightTarget(AppState.currentLesson.text[0]);
+    InputVisuals.highlightTarget(AppState.activeText[0]);
+  },
+
+  updateScroll() {
+    const block = document.getElementById('typing-text-block');
+    const container = document.querySelector('.typing-box-container');
+    if (!block || !container || block.children.length === 0) return;
+
+    const spans = block.children;
+    const currentSpan = spans[AppState.charIndex];
+    if (!currentSpan) return;
+
+    let currentLine = 0;
+    let lineOffsets = [spans[0].offsetTop];
+    let lastOffset = spans[0].offsetTop;
+
+    for (let i = 1; i < spans.length; i++) {
+      if (spans[i].offsetTop > lastOffset) {
+        currentLine++;
+        lastOffset = spans[i].offsetTop;
+        lineOffsets.push(lastOffset);
+      }
+      if (i === AppState.charIndex) {
+        AppState.currentLineIndex = currentLine;
+      }
+    }
+
+    // Calculate line group (scrolling every 5 lines)
+    const lineGroup = Math.floor((AppState.currentLineIndex || 0) / 5);
+    const targetScrollTop = lineOffsets[lineGroup * 5] || 0;
+
+    // Smoothly scroll the container
+    container.scrollTo({
+      top: targetScrollTop,
+      behavior: 'smooth'
+    });
   },
   
   updateLiveStats() {
@@ -601,6 +661,10 @@ const Router = {
     const mapContainer = document.getElementById('dashboard-levels-container');
     mapContainer.innerHTML = '';
     
+    // Check if logged in user is admin
+    const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+    const isAdmin = userSession && userSession.isAdmin === true;
+    
     let isPreviousCompleted = true; // Unlock first lesson by default
     let totalStarsEarned = 0;
     
@@ -621,7 +685,7 @@ const Router = {
         const starsEarned = AppState.progress.completedLessons[lesson.id] || 0;
         totalStarsEarned += starsEarned;
         
-        const isLocked = !isPreviousCompleted && lesson.id !== 1;
+        const isLocked = !isAdmin && !isPreviousCompleted && lesson.id !== 1;
         card.className = `lesson-card ${isLocked ? 'locked' : ''}`;
         
         // Build card HTML
@@ -974,6 +1038,107 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Override AppState progress name with the logged-in user name
     AppState.progress.name = userSession.name;
+
+    // Show admin panel button if admin logged in
+    if (userSession.isAdmin === true) {
+      const adminPanelBtn = document.getElementById('admin-panel-btn');
+      if (adminPanelBtn) {
+        adminPanelBtn.style.display = 'flex';
+      }
+      
+      // Bind admin page action controls
+      const addAdminBtn = document.getElementById('add-admin-btn');
+      const adminEmailInput = document.getElementById('admin-email');
+      const adminPasswordInput = document.getElementById('admin-password');
+      const successAlert = document.getElementById('admin-action-success');
+      const errorAlert = document.getElementById('admin-action-error');
+      const adminListEl = document.getElementById('admin-accounts-list');
+
+      const renderAdminsList = () => {
+        if (!adminListEl) return;
+        adminListEl.innerHTML = '';
+        const admins = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
+        admins.forEach(admin => {
+          const li = document.createElement('li');
+          li.style.background = 'rgba(255, 255, 255, 0.4)';
+          li.style.border = '1px solid var(--key-border)';
+          li.style.borderRadius = '8px';
+          li.style.padding = '10px 14px';
+          li.style.marginBottom = '8px';
+          li.style.display = 'flex';
+          li.style.justifyContent = 'space-between';
+          li.style.alignItems = 'center';
+          li.style.fontSize = '0.95rem';
+          li.style.fontWeight = '600';
+          li.style.color = 'var(--text-main)';
+          li.innerHTML = `
+            <span>📧 ${admin.email} (Password: ${admin.password})</span>
+            <span style="background: rgba(239, 68, 68, 0.1); color: #dc2626; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">Admin</span>
+          `;
+          adminListEl.appendChild(li);
+        });
+      };
+
+      if (addAdminBtn && adminEmailInput && adminPasswordInput) {
+        addAdminBtn.addEventListener('click', () => {
+          if (successAlert) successAlert.style.display = 'none';
+          if (errorAlert) errorAlert.style.display = 'none';
+
+          const emailVal = adminEmailInput.value.trim();
+          const passwordVal = adminPasswordInput.value.trim();
+
+          if (!emailVal || !passwordVal) {
+            if (errorAlert) {
+              errorAlert.textContent = "⚠️ Please fill in both email and password.";
+              errorAlert.style.display = 'flex';
+            }
+            return;
+          }
+
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(emailVal)) {
+            if (errorAlert) {
+              errorAlert.textContent = "⚠️ Please enter a valid email address.";
+              errorAlert.style.display = 'flex';
+            }
+            return;
+          }
+
+          if (passwordVal.length < 6) {
+            if (errorAlert) {
+              errorAlert.textContent = "⚠️ Password must be at least 6 characters.";
+              errorAlert.style.display = 'flex';
+            }
+            return;
+          }
+
+          const admins = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
+          const exists = admins.some(a => a.email.toLowerCase() === emailVal.toLowerCase());
+          
+          if (exists) {
+            if (errorAlert) {
+              errorAlert.textContent = "⚠️ An admin account with this email already exists.";
+              errorAlert.style.display = 'flex';
+            }
+            return;
+          }
+
+          // Add to list and save
+          admins.push({ email: emailVal, password: passwordVal });
+          localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(admins));
+
+          // Clear inputs
+          adminEmailInput.value = '';
+          adminPasswordInput.value = '';
+
+          if (successAlert) successAlert.style.display = 'flex';
+          renderAdminsList();
+        });
+      }
+
+      // Initial render of admins list
+      renderAdminsList();
+    }
   }
 
   // Bind Sign Out button

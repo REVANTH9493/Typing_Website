@@ -1,28 +1,32 @@
 /* TypeBuddy Sign In Stylesheet - Refined UI/UX */
 
+html {
+  font-size: 18px;
+}
+
 .signin-body {
   margin: 0;
   padding: 0;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #e0f2fe 0%, #f3e8ff 50%, #fce7f3 100%);
   font-family: var(--font-kids), sans-serif;
-  overflow-x: hidden;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
 .signin-wrapper {
   display: flex;
-  width: 100%;
-  max-width: 1050px;
-  min-height: 560px; /* Reduced from 650px to fit laptop screens */
-  margin: 15px;
-  border-radius: 24px;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+  border: none;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   transition: all var(--transition-normal);
@@ -267,7 +271,6 @@
   white-space: nowrap;
 }
 
-/* Right side Sign In Form */
 .signin-right {
   flex: 0.9;
   background: rgba(255, 255, 255, 0.85);
@@ -275,6 +278,33 @@
   align-items: center;
   justify-content: center;
   padding: 30px; /* Reduced from 40px */
+  height: 100%;
+  overflow-y: auto;
+}
+
+.signin-link-container {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.signin-link-text {
+  color: #6b21a8;
+}
+
+.signin-link {
+  color: #8b5cf6;
+  text-decoration: none;
+  font-weight: 700;
+  border-bottom: 2px dashed #a78bfa;
+  transition: all 0.2s ease;
+}
+
+.signin-link:hover {
+  color: #7c3aed;
+  border-bottom-style: solid;
 }
 
 .form-container {
@@ -332,6 +362,7 @@
 .input-group input[type="text"],
 .input-group input[type="email"],
 .input-group input[type="number"],
+.input-group input[type="password"],
 .input-group select {
   font-family: inherit;
   font-size: 0.9rem;
@@ -463,12 +494,15 @@
 @media (max-width: 900px) {
   .signin-wrapper {
     flex-direction: column;
-    min-height: auto;
-    margin: 16px;
+    height: 100vh;
+    width: 100vw;
+    margin: 0;
+    border-radius: 0;
   }
   
   .signin-left {
     padding: 20px;
+    flex: 1;
   }
   
   .signin-left .animation-container {
@@ -477,6 +511,8 @@
   
   .signin-right {
     padding: 24px;
+    flex: 1.5;
+    overflow-y: auto;
   }
 }
 
@@ -494,6 +530,8 @@
   .signin-right {
     background: transparent;
     padding: 8px;
+    height: 100vh;
+    overflow-y: auto;
   }
   
   .form-container {

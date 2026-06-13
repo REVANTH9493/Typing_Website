@@ -1,37 +1,14 @@
 // TypeBuddy Sign In Logic
 
 document.addEventListener('DOMContentLoaded', () => {
-  // --- WEB AUDIO API SYNTHESIZER ---
-  const SoundSynth = {
-    ctx: null,
-    init() {
-      if (!this.ctx) {
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-    },
-    playClick() {
-      try {
-        this.init();
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(1600, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.03);
-        
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
-        
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.03);
-      } catch (e) {
-        console.warn("Audio Context blocked or unsupported:", e);
-      }
-    }
-  };
+  // Seed default admin account
+  const defaultAdmins = [
+    { email: 'revanth@gmail.com', password: 'Revanth@123' }
+  ];
+  if (!localStorage.getItem('typebuddy_admin_accounts')) {
+    localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(defaultAdmins));
+  }
+
 
   // --- HERO ANIMATION STAGE INITIALIZATION ---
   const stage = document.getElementById('floating-keys-container');
@@ -76,9 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
       el.style.transform = `scale(${k.scale})`;
       el.dataset.scale = k.scale;
 
-      // Click callback sound trigger
+      // Click callback trigger
       el.addEventListener('click', () => {
-        SoundSynth.playClick();
         el.style.background = '#8b5cf6';
         el.style.borderColor = '#c084fc';
         el.style.color = '#fff';
@@ -201,41 +177,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- PRE-FILLING LOGIC ---
   const emailInput = document.getElementById('email');
-  const nameInput = document.getElementById('full-name');
+  const passwordInput = document.getElementById('password');
   const rememberCheckbox = document.getElementById('remember-me');
   const statusText = document.querySelector('.status-text');
 
   // 1. Check URL query parameters (redirected from signup)
   const urlParams = new URLSearchParams(window.location.search);
   const paramEmail = urlParams.get('email');
-  const paramName = urlParams.get('name');
   const isNewUser = urlParams.get('newuser');
 
   if (paramEmail) emailInput.value = decodeURIComponent(paramEmail);
-  if (paramName) nameInput.value = decodeURIComponent(paramName);
 
   if (isNewUser && statusText) {
     statusText.textContent = "Welcome to the family! Now sign in! 🐒";
-    // Trigger audio greeting if user interacts
-    document.body.addEventListener('click', () => {
-      const utterance = new SpeechSynthesisUtterance("Welcome! Please sign in to begin touch typing.");
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      window.speechSynthesis.speak(utterance);
-    }, { once: true });
   }
 
   // 2. Check Remembered User
-  if (!emailInput.value || !nameInput.value) {
+  if (!emailInput.value) {
     const remembered = localStorage.getItem('typebuddy_remembered_user');
     if (remembered) {
       try {
-        const { email, name } = JSON.parse(remembered);
-        if (email && !emailInput.value) emailInput.value = email;
-        if (name && !nameInput.value) nameInput.value = name;
+        const { email } = JSON.parse(remembered);
+        if (email) emailInput.value = email;
         rememberCheckbox.checked = true;
-        if (statusText && !isNewUser) {
-          statusText.textContent = `Welcome back, ${name}! 🐒`;
+        
+        // Find user name for greeting
+        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+        const matchingUser = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (matchingUser && statusText && !isNewUser) {
+          statusText.textContent = `Welcome back, ${matchingUser.name}! 🐒`;
         }
       } catch (e) {
         console.error("Failed to load remembered credentials", e);
@@ -286,10 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
       isValid = false;
     }
 
-    // Name validation
-    const nameVal = nameInput.value.trim();
-    if (!nameVal) {
-      setError(nameInput, "Full Name or Nickname is required.");
+    // Password validation
+    const passwordVal = passwordInput.value.trim();
+    if (!passwordVal) {
+      setError(passwordInput, "Password is required.");
       isValid = false;
     }
 
@@ -299,27 +269,53 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Lookup user details from local registry to retrieve typing goal & level
+    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+    const adminAccounts = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
+    
+    // Check if it's an admin signing in
+    const matchingAdmin = adminAccounts.find(a => a.email.toLowerCase() === emailVal.toLowerCase());
+    let isAdmin = false;
+    let matchingUser = null;
+    
+    if (matchingAdmin) {
+      if (matchingAdmin.password !== passwordVal) {
+        setError(passwordInput, "Incorrect password.");
+        generalAlert.style.display = 'flex';
+        return;
+      }
+      isAdmin = true;
+      matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase()) || {
+        name: "Admin Revanth",
+        email: emailVal,
+        goal: "General Typing",
+        level: "Advanced"
+      };
+    } else {
+      matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase());
+      if (!matchingUser) {
+        setError(emailInput, "No account found with this email.");
+        generalAlert.style.display = 'flex';
+        return;
+      } else if (matchingUser.password && matchingUser.password !== passwordVal) {
+        setError(passwordInput, "Incorrect password.");
+        generalAlert.style.display = 'flex';
+        return;
+      }
+    }
+
     // Disable button, show loading
     submitBtn.disabled = true;
     submitBtn.textContent = "Signing in... 🚀";
 
-    // Lookup user details from local registry to retrieve typing goal & level
-    let goal = "Improve Speed";
-    let level = "Beginner";
-
-    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-    const matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase());
-    
-    if (matchingUser) {
-      goal = matchingUser.goal || goal;
-      level = matchingUser.level || level;
-    }
+    const nameVal = matchingUser.name || "User";
+    const goal = matchingUser.goal || "Improve Speed";
+    const level = matchingUser.level || "Beginner";
 
     // Save remember me credentials if checked
     if (rememberCheckbox.checked) {
       localStorage.setItem('typebuddy_remembered_user', JSON.stringify({
-        email: emailVal,
-        name: nameVal
+        email: emailVal
       }));
     } else {
       localStorage.removeItem('typebuddy_remembered_user');
@@ -332,7 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
       goal: goal,
       level: level,
       signedInAt: new Date().toISOString(),
-      rememberMe: rememberCheckbox.checked
+      rememberMe: rememberCheckbox.checked,
+      isAdmin: isAdmin
     };
 
     localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));

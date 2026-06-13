@@ -27,11 +27,11 @@
     
     <div class="nav-controls">
       <!-- Setting controls -->
-      <div class="flex-row-center glass-card" style="padding: 6px 16px; border-radius: 20px; gap: 14px; box-shadow: none;">
-        <label class="flex-row-center" style="cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+      <div class="flex-row-center glass-card" style="padding: 10px 20px; border-radius: 20px; gap: 16px; box-shadow: none;">
+        <label class="flex-row-center" style="cursor: pointer; font-size: 1.1rem; font-weight: 600;">
           🔊 Sound: <input type="checkbox" id="setting-sound" checked style="accent-color: #8b5cf6;">
         </label>
-        <label class="flex-row-center" style="cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+        <label class="flex-row-center" style="cursor: pointer; font-size: 1.1rem; font-weight: 600;">
           🗣️ Voice Assistant: <input type="checkbox" id="setting-voice" checked style="accent-color: #8b5cf6;">
         </label>
       </div>
@@ -40,15 +40,18 @@
       <button class="btn btn-secondary" data-link="games">🎮 Games</button>
       <button class="btn btn-secondary" data-link="stats">📊 Stats</button>
       
+      <!-- Admin Panel Button (Visible only to admins) -->
+      <button id="admin-panel-btn" class="btn btn-secondary" data-link="admin" style="display: none; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #dc2626;">🔑 Admin Panel</button>
+      
       <!-- Certificate Button (Visible only on completion) -->
       <button id="cert-trigger-btn" class="btn btn-primary" data-link="stats" style="display: none; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-color: #d97706; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);">
         🏆 Certificate!
       </button>
 
       <!-- User badge & sign out -->
-      <div id="user-badge" class="flex-row-center glass-card" style="padding: 6px 16px; border-radius: 20px; gap: 10px; box-shadow: none;">
-        <span id="user-display-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">👤 Loading...</span>
-        <button id="signout-btn" style="background: none; border: none; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center;" title="Sign Out">🚪</button>
+      <div id="user-badge" class="flex-row-center glass-card" style="padding: 10px 20px; border-radius: 20px; gap: 12px; box-shadow: none;">
+        <span id="user-display-name" style="font-weight: 600; font-size: 1.1rem; color: var(--text-main);">👤 Loading...</span>
+        <button id="signout-btn" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; display: flex; align-items: center;" title="Sign Out">🚪</button>
       </div>
     </div>
   </header>
@@ -359,6 +362,44 @@
           <button class="btn btn-secondary" data-link="stats">Back to Stats</button>
         </div>
         
+      </div>
+    </section>
+
+    <!-- 7. ADMIN PANEL VIEW -->
+    <section id="admin-view" class="view-section">
+      <div class="glass-card" style="max-width: 600px; margin: 0 auto;">
+        <h2 class="text-center mb-4" style="color: #dc2626; display: flex; align-items: center; justify-content: center; gap: 10px;">🔑 Admin Control Panel</h2>
+        
+        <div style="margin-bottom: 24px; border-bottom: 1px solid var(--card-border); padding-bottom: 20px;">
+          <h3>Add New Admin Account</h3>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px;">Create a new administrator account. Admins can log in and automatically unlock all typing lessons.</p>
+          
+          <div id="admin-action-success" class="error-alert-box" style="display: none; background: #ecfdf5; border-color: #a7f3d0; color: #059669; padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; margin-bottom: 12px; align-items: center; gap: 8px;">
+            ✅ Admin account created successfully!
+          </div>
+          <div id="admin-action-error" class="error-alert-box" style="display: none; background: #fef2f2; border-color: #fee2e2; color: #dc2626; padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; margin-bottom: 12px; align-items: center; gap: 8px;">
+            ⚠️ Please correct the errors below.
+          </div>
+
+          <div class="input-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
+            <label for="admin-email" style="font-size: 0.8rem; font-weight: 700; color: #4c1d95;">📧 Admin Email Address</label>
+            <input type="email" id="admin-email" placeholder="admin@example.com" class="glass-card" style="padding: 10px 14px; border-radius: 10px; width: 100%; border: 1px solid var(--key-border); box-shadow: none; outline: none; background: rgba(255, 255, 255, 0.8); color: #4c1d95; font-size: 0.9rem;">
+          </div>
+          
+          <div class="input-group" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 4px;">
+            <label for="admin-password" style="font-size: 0.8rem; font-weight: 700; color: #4c1d95;">🔒 Admin Password</label>
+            <input type="password" id="admin-password" placeholder="Create admin password" class="glass-card" style="padding: 10px 14px; border-radius: 10px; width: 100%; border: 1px solid var(--key-border); box-shadow: none; outline: none; background: rgba(255, 255, 255, 0.8); color: #4c1d95; font-size: 0.9rem;">
+          </div>
+
+          <button id="add-admin-btn" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 12px;">Create Admin Account 🛡️</button>
+        </div>
+
+        <div>
+          <h3>Registered Admin Accounts</h3>
+          <ul id="admin-accounts-list" style="list-style: none; padding: 0; margin-top: 12px;">
+            <!-- Rendered dynamically via app.js -->
+          </ul>
+        </div>
       </div>
     </section>
 
