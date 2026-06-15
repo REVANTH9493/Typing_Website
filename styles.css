@@ -1785,7 +1785,8 @@ main {
   transform: translateY(1px);
 }
 
-.signup-link-container {
+.signup-link-container,
+.signin-link-container {
   margin-top: 20px;
   text-align: center;
   font-size: 0.88rem;
@@ -1793,7 +1794,8 @@ main {
   color: #6b7280;
 }
 
-.signup-link-text {
+.signup-link-text,
+.signin-link-text {
   color: #6b21a8;
 }
 
