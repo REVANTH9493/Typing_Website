@@ -129,7 +129,8 @@ const AppState = {
       lessonPracticeTime: {},   // lessonId -> seconds remaining (starts at 3600)
       highScores: {},           // game -> score
       name: userSession ? userSession.name : 'Young Typist',
-      history: []               // Array of practice attempts
+      history: [],              // Array of practice attempts
+      keyStats: {}              // key -> { total: 0, errors: 0, totalTimeMs: 0 }
     };
 
     const saved = localStorage.getItem(key);
@@ -145,6 +146,7 @@ const AppState = {
     if (!this.progress.completedLessons) this.progress.completedLessons = {};
     if (!this.progress.history) this.progress.history = [];
     if (!this.progress.highScores) this.progress.highScores = {};
+    if (!this.progress.keyStats) this.progress.keyStats = {};
     
     // Sync from database (local or remote)
     this.syncFromDatabase();
@@ -167,6 +169,8 @@ const AppState = {
         this.progress = { ...this.progress, ...user.progress };
         if (this.currentView === 'dashboard') {
           Router.renderDashboardMap();
+        } else if (this.currentView === 'stats') {
+          Router.renderStatsView();
         }
       }
       return;
@@ -189,6 +193,8 @@ const AppState = {
           
           if (this.currentView === 'dashboard') {
             Router.renderDashboardMap();
+          } else if (this.currentView === 'stats') {
+            Router.renderStatsView();
           }
         }
       }
@@ -417,18 +423,25 @@ const TypingTutor = {
     AppState.keystrokes = 0;
     AppState.correctStrokes = 0;
     AppState.errors = 0;
+    AppState.sessionKeyErrors = {};
     AppState.startTime = null;
+    AppState.lastKeyTime = null; // reset key latency timer
     if (AppState.timerInterval) clearInterval(AppState.timerInterval);
     
     // 1. Session Practice Timer initialization (60 minutes = 3600 seconds)
-    if (!AppState.progress.lessonPracticeTime) AppState.progress.lessonPracticeTime = {};
-    const secondsLeft = AppState.progress.lessonPracticeTime[lesson.id];
-    AppState.lessonSecondsLeft = (secondsLeft !== undefined) ? secondsLeft : 3600;
-    
-    // Display remaining time immediately
-    const mins = Math.floor(AppState.lessonSecondsLeft / 60);
-    const secs = AppState.lessonSecondsLeft % 60;
-    document.getElementById('stat-timer').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    if (lesson.id === 'custom-weak-keys') {
+      AppState.lessonSecondsLeft = Infinity;
+      document.getElementById('stat-timer').textContent = "∞";
+    } else {
+      if (!AppState.progress.lessonPracticeTime) AppState.progress.lessonPracticeTime = {};
+      const secondsLeft = AppState.progress.lessonPracticeTime[lesson.id];
+      AppState.lessonSecondsLeft = (secondsLeft !== undefined) ? secondsLeft : 3600;
+      
+      // Display remaining time immediately
+      const mins = Math.floor(AppState.lessonSecondsLeft / 60);
+      const secs = AppState.lessonSecondsLeft % 60;
+      document.getElementById('stat-timer').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
     
     // 2. Key Repetition Count initialization
     const repContainer = document.getElementById('repetition-counter-container');
@@ -451,7 +464,7 @@ const TypingTutor = {
     textContainer.innerHTML = '';
     
     let activeText = lesson.text;
-    if (activeText.length < 500) {
+    if (lesson.id !== 'custom-weak-keys' && activeText.length < 500) {
       while (activeText.length < 500) {
         activeText += " " + lesson.text;
       }
@@ -481,6 +494,9 @@ const TypingTutor = {
     
     // Setup visuals
     InputVisuals.highlightTarget(AppState.activeText[0]);
+    if (typeof KeyboardHeatmap !== 'undefined' && KeyboardHeatmap.active) {
+      KeyboardHeatmap.render();
+    }
     
     // Transition to Tutor Screen
     Router.navigateTo('tutor');
@@ -502,6 +518,12 @@ const TypingTutor = {
       AppState.startTime = new Date();
       // Tick countdown every second
       AppState.timerInterval = setInterval(() => {
+        if (AppState.currentLesson.id === 'custom-weak-keys') {
+          document.getElementById('stat-timer').textContent = "∞";
+          this.updateLiveStats();
+          return;
+        }
+        
         if (AppState.lessonSecondsLeft > 0) {
           AppState.lessonSecondsLeft--;
           AppState.progress.lessonPracticeTime[AppState.currentLesson.id] = AppState.lessonSecondsLeft;
@@ -533,6 +555,21 @@ const TypingTutor = {
       // CORRECT KEY
       AppState.correctStrokes++;
       
+      // Record key metrics: total and latency
+      const targetKeyId = InputVisuals.mapKeyName(targetChar);
+      if (!AppState.progress.keyStats[targetKeyId]) {
+        AppState.progress.keyStats[targetKeyId] = { total: 0, errors: 0, totalTimeMs: 0 };
+      }
+      const nowTime = performance.now();
+      let elapsed = AppState.lastKeyTime ? (nowTime - AppState.lastKeyTime) : 0;
+      elapsed = Math.min(elapsed, 3000); // cap at 3 seconds to avoid idle pauses skewing stats
+      AppState.lastKeyTime = nowTime;
+      
+      AppState.progress.keyStats[targetKeyId].total++;
+      if (elapsed > 0) {
+        AppState.progress.keyStats[targetKeyId].totalTimeMs += elapsed;
+      }
+      
       // Increment repetitions if initial identification stage
       if (AppState.currentLesson.isInitialKeyStage) {
         // Increment key repetitions (excluding spaces/caps shifts)
@@ -559,7 +596,9 @@ const TypingTutor = {
       
       if (AppState.charIndex >= lessonText.length) {
         // CHECK COMPLETION OR LOOP
-        if (AppState.lessonSecondsLeft <= 0 && AppState.repetitionCount >= 100) {
+        if (AppState.currentLesson.id === 'custom-weak-keys') {
+          this.completeLesson();
+        } else if (AppState.lessonSecondsLeft <= 0 && AppState.repetitionCount >= 100) {
           this.completeLesson();
         } else {
           // Keep typing! Regenerate text
@@ -585,6 +624,24 @@ const TypingTutor = {
     } else {
       // INCORRECT KEY
       AppState.errors++;
+      
+      // Record key metrics: error
+      const targetKeyId = InputVisuals.mapKeyName(targetChar);
+      if (!AppState.progress.keyStats[targetKeyId]) {
+        AppState.progress.keyStats[targetKeyId] = { total: 0, errors: 0, totalTimeMs: 0 };
+      }
+      AppState.progress.keyStats[targetKeyId].total++;
+      AppState.progress.keyStats[targetKeyId].errors++;
+      
+      // Track session error keys
+      if (!AppState.sessionKeyErrors) {
+        AppState.sessionKeyErrors = {};
+      }
+      if (!AppState.sessionKeyErrors[targetKeyId]) {
+        AppState.sessionKeyErrors[targetKeyId] = 0;
+      }
+      AppState.sessionKeyErrors[targetKeyId]++;
+      
       if (AppState.soundEnabled) SoundSynth.playBuzz();
       
       currentSpan.classList.add('incorrect');
@@ -596,6 +653,10 @@ const TypingTutor = {
       }, 500);
       
       this.updateLiveStats();
+    }
+
+    if (typeof KeyboardHeatmap !== 'undefined' && KeyboardHeatmap.active) {
+      KeyboardHeatmap.render();
     }
   },
   
@@ -697,9 +758,6 @@ const TypingTutor = {
     });
     AppState.saveProgress();
     
-    // Eligibility Threshold check: WPM >= 15 and Accuracy >= 85%
-    const isEligible = (wpm >= 15 && accuracy >= 85);
-    
     const eligCard = document.getElementById('eligibility-status-card');
     const eligTitle = document.getElementById('eligibility-title');
     const eligDesc = document.getElementById('eligibility-desc');
@@ -707,46 +765,78 @@ const TypingTutor = {
     const nextBtn = document.getElementById('complete-next-btn');
     
     let stars = 0;
-    if (isEligible) {
-      // Passed eligibility check
-      eligCard.style.borderColor = "#10b981";
-      eligCard.style.backgroundColor = "rgba(16, 185, 129, 0.08)";
+    if (AppState.currentLesson.id === 'custom-weak-keys') {
+      // Custom Weak Keys completion view
+      eligCard.style.borderColor = "#8b5cf6";
+      eligCard.style.backgroundColor = "rgba(139, 92, 246, 0.08)";
+      eligTitle.textContent = "Weak Keys Training Summary 📊";
+      eligTitle.style.color = "#8b5cf6";
       
-      eligTitle.textContent = "Eligibility Check: PASSED! 🎉";
-      eligTitle.style.color = "#10b981";
-      eligDesc.textContent = `Excellent job! You typed at a speed of ${wpm} WPM (required >= 15) and accuracy of ${accuracy}% (required >= 85%). The next lesson is now unlocked on the map.`;
-      
-      starsDiv.style.display = 'block';
-      nextBtn.textContent = "Unlock & Next Lesson! 🚀";
-      
-      // Save lesson completion stars progress
-      stars = accuracy >= 95 ? 3 : (accuracy >= 85 ? 2 : 1);
-      
-      const lessonId = AppState.currentLesson.id;
-      const previousStars = AppState.progress.completedLessons[lessonId] || 0;
-      if (stars > previousStars) {
-        AppState.progress.completedLessons[lessonId] = stars;
-        AppState.saveProgress();
+      const wrongKeys = Object.entries(AppState.sessionKeyErrors || {})
+        .filter(([key, count]) => count > 0)
+        .map(([key, count]) => `"${key.toUpperCase()}" (${count} ${count === 1 ? 'time' : 'times'})`);
+        
+      if (wrongKeys.length > 0) {
+        eligDesc.innerHTML = `You made typing mistakes on these letters during this practice:<br><strong style="color: #ef4444; font-size: 1.15rem; display: inline-block; margin-top: 8px;">${wrongKeys.join(", ")}</strong>.<br><br>Practice these keys more to build accuracy.`;
+      } else {
+        eligDesc.innerHTML = `Perfect typing! 🎉 You did not make any mistakes in this practice session. Great job!`;
       }
-      AppState.starsCount += stars;
-      
-      SoundSynth.playFanfare();
-      MascotHelper.react('complete');
-      triggerConfetti();
-    } else {
-      // Failed speed eligibility check
-      eligCard.style.borderColor = "#ef4444";
-      eligCard.style.backgroundColor = "rgba(239, 68, 68, 0.08)";
-      
-      eligTitle.textContent = "Eligibility Check: FAILED ❌";
-      eligTitle.style.color = "#ef4444";
-      eligDesc.textContent = `WPM Speed: ${wpm} (min 15 required) | Accuracy: ${accuracy}% (min 85% required). You took too much time or made too many mistakes. Practice this lesson again to build muscle memory before moving to the next level!`;
       
       starsDiv.style.display = 'none';
-      nextBtn.textContent = "Practice Lesson Again 🔄";
+      nextBtn.textContent = "Finish Training 📊";
       
-      if (AppState.soundEnabled) SoundSynth.playBuzz();
-      MascotHelper.react('incorrect');
+      if (accuracy >= 90) {
+        triggerConfetti();
+        SoundSynth.playFanfare();
+      } else {
+        if (AppState.soundEnabled) SoundSynth.playBuzz();
+      }
+      MascotHelper.react('complete');
+    } else {
+      // Normal graded lessons completion view
+      starsDiv.style.display = 'block';
+      
+      const isEligible = (wpm >= 15 && accuracy >= 85);
+      if (isEligible) {
+        // Passed eligibility check
+        eligCard.style.borderColor = "#10b981";
+        eligCard.style.backgroundColor = "rgba(16, 185, 129, 0.08)";
+        
+        eligTitle.textContent = "Eligibility Check: PASSED! 🎉";
+        eligTitle.style.color = "#10b981";
+        eligDesc.textContent = `Excellent job! You typed at a speed of ${wpm} WPM (required >= 15) and accuracy of ${accuracy}% (required >= 85%). The next lesson is now unlocked on the map.`;
+        
+        nextBtn.textContent = "Unlock & Next Lesson! 🚀";
+        
+        // Save lesson completion stars progress
+        stars = accuracy >= 95 ? 3 : (accuracy >= 85 ? 2 : 1);
+        
+        const lessonId = AppState.currentLesson.id;
+        const previousStars = AppState.progress.completedLessons[lessonId] || 0;
+        if (stars > previousStars) {
+          AppState.progress.completedLessons[lessonId] = stars;
+          AppState.saveProgress();
+        }
+        AppState.starsCount += stars;
+        
+        SoundSynth.playFanfare();
+        MascotHelper.react('complete');
+        triggerConfetti();
+      } else {
+        // Failed speed eligibility check
+        eligCard.style.borderColor = "#ef4444";
+        eligCard.style.backgroundColor = "rgba(239, 68, 68, 0.08)";
+        
+        eligTitle.textContent = "Eligibility Check: FAILED ❌";
+        eligTitle.style.color = "#ef4444";
+        eligDesc.textContent = `WPM Speed: ${wpm} (min 15 required) | Accuracy: ${accuracy}% (min 85% required). You took too much time or made too many mistakes. Practice this lesson again to build muscle memory before moving to the next level!`;
+        
+        starsDiv.style.display = 'none';
+        nextBtn.textContent = "Practice Lesson Again 🔄";
+        
+        if (AppState.soundEnabled) SoundSynth.playBuzz();
+        MascotHelper.react('incorrect');
+      }
     }
     
     // Display Completion Modal stats
@@ -781,6 +871,13 @@ const Router = {
     const session = localStorage.getItem('typebuddy_user_session');
     if (!session && viewId !== 'signin' && viewId !== 'signup') {
       viewId = 'signin';
+    }
+
+    // Exit active game if navigating anywhere, or reset games view if navigating to games
+    if (typeof BalloonGame !== 'undefined') {
+      if (viewId === 'games' || BalloonGame.active) {
+        BalloonGame.exit();
+      }
     }
 
     // Cancel overlay display if navigating to core views
@@ -1278,9 +1375,29 @@ const Router = {
     Object.values(AppState.progress.completedLessons).forEach(s => totalStars += s);
     document.getElementById('stats-total-stars').textContent = totalStars;
     
+    // Calculate average WPM from history
+    let avgWpm = 0;
+    const history = AppState.progress.history || [];
+    if (history.length > 0) {
+      const totalWpm = history.reduce((sum, item) => sum + item.wpm, 0);
+      avgWpm = Math.round(totalWpm / history.length);
+    } else {
+      const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+      const isAdmin = userSession && userSession.isAdmin === true;
+      if (isAdmin) {
+        avgWpm = 45; // Default admin speed seed if history is empty
+      }
+    }
+    document.getElementById('stats-avg-wpm').textContent = `${avgWpm} WPM`;
+    
     // Game high score
     const gameScore = AppState.progress.highScores['balloon'] || 0;
     document.getElementById('stats-balloon-highscore').textContent = gameScore;
+    
+    // Render progress charts
+    if (typeof StatsChart !== 'undefined') {
+      StatsChart.render();
+    }
     
     this.updateCertificateAvailability();
   }
@@ -1334,6 +1451,32 @@ const BalloonGame = {
     return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
   },
   
+  exit() {
+    this.active = false;
+    clearTimeout(this.spawnTimer);
+    clearInterval(this.gameTimerInterval);
+    cancelAnimationFrame(this.gameLoop);
+    window.removeEventListener('keydown', this.handleKeystrokeBound);
+    
+    // Clean up all balloons
+    this.balloons.forEach(b => {
+      if (b.el) b.el.remove();
+    });
+    this.balloons = [];
+    this.targetedBalloon = null;
+    this.targetCharIndex = 0;
+    
+    // Hide game arena
+    if (this.arenaEl) this.arenaEl.style.display = 'none';
+    
+    // Show game introduction header and options grid
+    const introHeader = document.getElementById('game-intro-header');
+    if (introHeader) introHeader.style.display = 'block';
+    
+    const setupGrid = document.getElementById('game-setup-grid');
+    if (setupGrid) setupGrid.style.display = 'flex';
+  },
+
   start(mode) {
     this.arenaEl = document.getElementById('game-arena-block');
     this.score = 0;
@@ -1349,15 +1492,24 @@ const BalloonGame = {
     const introHeader = document.getElementById('game-intro-header');
     if (introHeader) introHeader.style.display = 'none';
     
-    // Clear arena content and set up HUD
+    // Clear arena content and set up HUD with Back button
     this.arenaEl.innerHTML = `
       <div class="game-score-board">
-        <div class="game-hud">Level: <span id="game-level-val">1</span> / 5</div>
-        <div class="game-hud">Blasted: <span id="game-score-val">0</span></div>
-        <div class="game-hud">Time Left: <span id="game-time-val">3:00</span></div>
-        <div class="game-hud">Lives: <span id="game-lives-val">❤️❤️❤️</span></div>
+        <button id="game-back-btn" class="btn btn-secondary" style="pointer-events: auto; font-size: 1rem; padding: 8px 16px; border-radius: 12px; font-weight: bold; display: flex; align-items: center; gap: 6px;">⬅️ Quit Game</button>
+        <div style="display: flex; gap: 8px;">
+          <div class="game-hud">Level: <span id="game-level-val">1</span> / 5</div>
+          <div class="game-hud">Blasted: <span id="game-score-val">0</span></div>
+          <div class="game-hud">Time Left: <span id="game-time-val">3:00</span></div>
+          <div class="game-hud">Lives: <span id="game-lives-val">❤️❤️❤️</span></div>
+        </div>
       </div>
     `;
+    
+    // Bind Back button click listener
+    const backBtn = document.getElementById('game-back-btn');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => this.exit());
+    }
     
     this.arenaEl.style.display = 'block';
     
@@ -1417,12 +1569,15 @@ const BalloonGame = {
     if (key.length > 1) return;
     
     if (this.mode === 'easy') {
-      // Easy Mode: Single Letter Popping (case-sensitive)
+      // Easy Mode: Single Letter Popping (case-sensitive) targeting the topmost balloon
       let matchIdx = -1;
+      let minY = Infinity;
       for (let i = 0; i < this.balloons.length; i++) {
         if (this.balloons[i].letter === key) {
-          matchIdx = i;
-          break;
+          if (this.balloons[i].y < minY) {
+            minY = this.balloons[i].y;
+            matchIdx = i;
+          }
         }
       }
       
@@ -1442,7 +1597,7 @@ const BalloonGame = {
         this.createPopParticles(matched.x, matched.y);
       }
     } else {
-      // Medium / Hard Mode: Full Word Typing with Targeting focus
+      // Medium / Hard Mode: Full Word Typing with Targeting focus on the topmost matching balloon
       if (this.targetedBalloon) {
         const targetWord = this.targetedBalloon.word;
         const expectedChar = targetWord[this.targetCharIndex];
@@ -1491,15 +1646,15 @@ const BalloonGame = {
           if (AppState.soundEnabled) SoundSynth.playBuzz();
         }
       } else {
-        // No balloon targeted yet. Find one matching the first character
-        let lowestY = -999;
+        // No balloon targeted yet. Find the one closest to the top matching the first character
+        let minY = Infinity;
         let matchBalloon = null;
         
         for (let i = 0; i < this.balloons.length; i++) {
           const b = this.balloons[i];
           if (b.word[0] === key) {
-            if (b.y < this.arenaEl.clientHeight && b.y > lowestY) {
-              lowestY = b.y;
+            if (b.y < minY) {
+              minY = b.y;
               matchBalloon = b;
             }
           }
@@ -1773,6 +1928,305 @@ function triggerConfetti() {
   }
 }
 
+// Keyboard Heatmap Overlay Engine
+const KeyboardHeatmap = {
+  active: false,
+  
+  toggle() {
+    this.active = !this.active;
+    const btn = document.getElementById('heatmap-toggle-btn');
+    if (btn) {
+      if (this.active) {
+        btn.classList.add('active');
+        btn.textContent = "📊 Hide Heatmap";
+        this.render();
+      } else {
+        btn.classList.remove('active');
+        btn.textContent = "📊 Show Heatmap";
+        this.clear();
+      }
+    }
+  },
+  
+  clear() {
+    document.querySelectorAll('.keyboard-container .key').forEach(keyEl => {
+      keyEl.style.backgroundColor = '';
+      keyEl.style.color = '';
+      keyEl.style.borderColor = '';
+      keyEl.style.boxShadow = '';
+    });
+  },
+  
+  render() {
+    if (!this.active) return;
+    this.clear();
+    
+    const stats = AppState.progress.keyStats || {};
+    
+    Object.keys(stats).forEach(keyId => {
+      const keyEl = document.getElementById(`key-${keyId}`);
+      if (!keyEl) return;
+      
+      const s = stats[keyId];
+      if (s.total === 0) return;
+      
+      const errorRate = s.errors / s.total;
+      const correctPresses = s.total - s.errors;
+      const avgTime = correctPresses > 0 ? (s.totalTimeMs / correctPresses) : 0;
+      
+      let bg = "";
+      let border = "";
+      let text = "#fff";
+      
+      if (errorRate > 0.15) {
+        // Red overlay: Mistakes issue
+        bg = "rgba(239, 68, 68, 0.85)";
+        border = "#dc2626";
+      } else if (avgTime > 800) {
+        // Orange overlay: Speed issue
+        bg = "rgba(249, 115, 22, 0.85)";
+        border = "#ea580c";
+      } else if (s.total > 5) {
+        // Green overlay: Mastered
+        bg = "rgba(16, 185, 129, 0.85)";
+        border = "#059669";
+      }
+      
+      if (bg) {
+        keyEl.style.backgroundColor = bg;
+        keyEl.style.color = text;
+        keyEl.style.borderColor = border;
+        keyEl.style.boxShadow = `inset 0 0 8px rgba(0,0,0,0.15)`;
+      }
+    });
+  }
+};
+
+// Comprehensive Keyboard Finger Guide Map (for visual tutor guide falls back)
+const COMPREHENSIVE_FINGER_GUIDE = {
+  // Left Hand
+  "a": "L5", "q": "L5", "z": "L5", "1": "L5", "!": "L5", "A": "L5", "Q": "L5", "Z": "L5",
+  "s": "L4", "w": "L4", "x": "L4", "2": "L4", "@": "L4", "S": "L4", "W": "L4", "X": "L4",
+  "d": "L3", "e": "L3", "c": "L3", "3": "L3", "#": "L3", "D": "L3", "E": "L3", "C": "L3",
+  "f": "L2", "r": "L2", "v": "L2", "4": "L2", "$": "L2", "F": "L2", "R": "L2", "V": "L2",
+  "g": "L2", "t": "L2", "b": "L2", "5": "L2", "%": "L2", "G": "L2", "T": "L2", "B": "L2",
+  // Thumbs
+  " ": "RT",
+  // Right Hand
+  "h": "R2", "y": "R2", "n": "R2", "6": "R2", "^": "R2", "H": "R2", "Y": "R2", "N": "R2",
+  "j": "R2", "u": "R2", "m": "R2", "7": "R2", "&": "R2", "J": "R2", "U": "R2", "M": "R2",
+  "k": "R3", "i": "R3", ",": "R3", "8": "R3", "*": "R3", "K": "R3", "I": "R3", "<": "R3",
+  "l": "R4", "o": "R4", ".": "R4", "9": "R4", "(": "R4", "L": "R4", "O": "R4", ">": "R4",
+  ";": "R5", "p": "R5", "/": "R5", "0": "R5", ")": "R5", ":": "R5", "P": "R5", "?": "R5",
+  // Additional punctuation
+  "\"": "R5", "'": "R5", "-": "R5", "_": "R5", "=": "R5", "+": "R5", "[": "R5", "]": "R5",
+  "{": "R5", "}": "R5", "\\": "R5", "|": "R5"
+};
+
+// Targeted Weak-Keys Training Prompt Generator
+const WeakKeysGenerator = {
+  getWeakKeys() {
+    const stats = AppState.progress.keyStats || {};
+    const weakList = [];
+    
+    Object.keys(stats).forEach(keyId => {
+      const s = stats[keyId];
+      if (s.total < 3) return; // need baseline sample
+      
+      const errorRate = s.errors / s.total;
+      const correctPresses = s.total - s.errors;
+      const avgTime = correctPresses > 0 ? (s.totalTimeMs / correctPresses) : 0;
+      
+      const difficulty = (errorRate * 10) + (avgTime / 1000);
+      
+      if (errorRate > 0.10 || avgTime > 700) {
+        weakList.push({ key: keyId, score: difficulty });
+      }
+    });
+    
+    weakList.sort((a, b) => b.score - a.score);
+    return weakList.map(item => item.key).slice(0, 5);
+  },
+  
+  generatePrompt() {
+    const p1 = "Developing fast and accurate typing skills requires patience, consistency, and regular practice. Every day presents a new opportunity to improve muscle memory and reduce mistakes while maintaining a comfortable rhythm. A good typist focuses not only on speed but also on precision, because correcting errors often takes more time than typing carefully in the first place. The best approach is to sit with proper posture, keep both feet on the floor, and place your fingers on the home row keys before beginning. As confidence grows, the eyes should remain on the screen instead of the keyboard so that touch typing becomes second nature. Reading interesting paragraphs while typing can make practice sessions more enjoyable and less repetitive. Modern workplaces expect employees to communicate quickly through";
+    const p2 = "emails, reports, and documentation, making efficient typing an essential skill across many professions. Even students benefit by completing assignments, coding projects, and research papers in less time. Small improvements each day eventually lead to significant progress over weeks and months. For example, increasing typing speed from 35 words per minute to 60 words per minute can dramatically improve productivity without sacrificing quality. Practice should include capital letters, commas, quotation marks, parentheses, and numbers such as 2026 or 12345 to build familiarity with every part of the keyboard. Difficult words and uncommon letter combinations should not be avoided, because they strengthen coordination between the fingers. Taking short breaks helps prevent fatigue and maintains concentration during longer sessions. The ultimate goal is to type naturally, confidently, and";
+    return `${p1} ${p2}`;
+  },
+  
+  startTraining() {
+    const weakKeys = this.getWeakKeys();
+    const prompt = this.generatePrompt();
+    
+    const customLesson = {
+      id: 'custom-weak-keys',
+      title: 'Targeted Weak Keys Practice',
+      text: prompt,
+      keys: weakKeys.length > 0 ? weakKeys : ["a", "s", "d", "f"],
+      isInitialKeyStage: false,
+      fingerGuide: COMPREHENSIVE_FINGER_GUIDE
+    };
+    
+    TypingTutor.startLesson(customLesson);
+  }
+};
+
+// Progress Chart Render Engine (utilizing Chart.js)
+const StatsChart = {
+  chartInstance: null,
+  
+  render() {
+    const canvas = document.getElementById('stats-progress-chart');
+    if (!canvas) return;
+    
+    if (this.chartInstance) {
+      this.chartInstance.destroy();
+      this.chartInstance = null;
+    }
+    
+    const history = AppState.progress.history || [];
+    const chartCard = document.getElementById('stats-progress-chart-card');
+    
+    if (history.length === 0) {
+      if (chartCard) chartCard.style.display = 'none';
+      return;
+    } else {
+      if (chartCard) chartCard.style.display = 'block';
+    }
+    
+    const dataPoints = history.slice(-15);
+    const labels = dataPoints.map((item, idx) => {
+      const labelId = item.lessonId === 'custom-weak-keys' ? 'WK' : `L${item.lessonId}`;
+      return `${labelId} (#${idx + 1})`;
+    });
+    const wpmData = dataPoints.map(item => item.wpm);
+    const accuracyData = dataPoints.map(item => item.accuracy);
+    
+    const isDark = AppState.theme === 'focus';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(124, 58, 237, 0.08)';
+    const textColor = isDark ? '#94a3b8' : '#7c3aed';
+    
+    const ctx = canvas.getContext('2d');
+    
+    const wpmGrad = ctx.createLinearGradient(0, 0, 0, 240);
+    wpmGrad.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
+    wpmGrad.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
+    
+    const accGrad = ctx.createLinearGradient(0, 0, 0, 240);
+    accGrad.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+    accGrad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+    
+    this.chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Speed (WPM)',
+            data: wpmData,
+            borderColor: '#8b5cf6',
+            backgroundColor: wpmGrad,
+            borderWidth: 3,
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Accuracy (%)',
+            data: accuracyData,
+            borderColor: '#10b981',
+            backgroundColor: accGrad,
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: {
+              color: textColor,
+              font: {
+                family: isDark ? 'Outfit, sans-serif' : 'Fredoka, sans-serif',
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: isDark ? '#1e293b' : '#fff',
+            titleColor: isDark ? '#f8fafc' : '#4c1d95',
+            bodyColor: isDark ? '#cbd5e1' : '#4c1d95',
+            borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#ddd6fe',
+            borderWidth: 1
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              color: gridColor
+            },
+            ticks: {
+              color: textColor,
+              font: {
+                size: 10
+              }
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            grid: {
+              color: gridColor
+            },
+            ticks: {
+              color: '#8b5cf6',
+              font: {
+                weight: 'bold'
+              }
+            },
+            title: {
+              display: true,
+              text: 'WPM Speed',
+              color: '#8b5cf6'
+            },
+            min: 0
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: {
+              drawOnChartArea: false
+            },
+            ticks: {
+              color: '#10b981',
+              font: {
+                weight: 'bold'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Accuracy %',
+              color: '#10b981'
+            },
+            min: 0,
+            max: 100
+          }
+        }
+      }
+    });
+  }
+};
+
 // Global Core Controls Initializer
 document.addEventListener('DOMContentLoaded', () => {
   // Helper to initialize session elements
@@ -1976,6 +2430,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // Default launch setting
   setAppTheme('kids');
   
+  // Heatmap toggle button binding
+  const heatmapToggleBtn = document.getElementById('heatmap-toggle-btn');
+  if (heatmapToggleBtn) {
+    heatmapToggleBtn.addEventListener('click', () => {
+      KeyboardHeatmap.toggle();
+    });
+  }
+  
+  // Weak keys training trigger button binding
+  const weakKeysStartBtn = document.getElementById('weak-keys-start-btn');
+  if (weakKeysStartBtn) {
+    weakKeysStartBtn.addEventListener('click', () => {
+      WeakKeysGenerator.startTraining();
+    });
+  }
+  
   // Nav routes triggers
   document.querySelectorAll('[data-link]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1994,7 +2464,11 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Modal buttons
   document.getElementById('complete-next-btn').addEventListener('click', () => {
-    Router.navigateTo('dashboard');
+    if (AppState.currentLesson && AppState.currentLesson.id === 'custom-weak-keys') {
+      Router.navigateTo('stats');
+    } else {
+      Router.navigateTo('dashboard');
+    }
   });
   
   // Mini games launch routing

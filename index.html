@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TypeBuddy - Anyone Can Learn Typing!</title>
   <meta name="description" content="An interactive, gamified typing tutor designed for kids and adults. Sourced from standard typing textbooks.">
-  <link rel="stylesheet" href="styles.css?v=1.0.2">
+  <link rel="stylesheet" href="styles.css?v=1.1.2">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -145,6 +146,10 @@
           <div style="display: grid; grid-template-columns: 1.8fr 1fr; gap: 20px; align-items: start;">
             <!-- Keyboard -->
             <div class="keyboard-container">
+              <!-- Keyboard Control Bar -->
+              <div style="display: flex; justify-content: flex-end; margin-bottom: 8px; padding-right: 4px;">
+                <button id="heatmap-toggle-btn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 8px; font-weight: bold; display: flex; align-items: center; gap: 6px; cursor: pointer;">📊 Show Heatmap</button>
+              </div>
               <!-- Keyboard Row 1 -->
               <div class="keyboard-row">
                 <div class="key key-L5" id="key-1">1</div>
@@ -335,11 +340,30 @@
             <div class="stats-card-lbl">Total Stars ⭐</div>
           </div>
           <div class="stats-card">
+            <div class="stats-card-val" id="stats-avg-wpm">0 WPM</div>
+            <div class="stats-card-lbl">Average Speed (WPM)</div>
+          </div>
+          <div class="stats-card">
             <div class="stats-card-val" id="stats-balloon-highscore">0</div>
             <div class="stats-card-lbl">Balloon Game Highscore</div>
           </div>
         </div>
         
+        <!-- Progress Chart card -->
+        <div id="stats-progress-chart-card" class="glass-card mb-4" style="padding: 20px; border-radius: 16px; box-shadow: none; border-color: rgba(124,58,237,0.15); background: rgba(255, 255, 255, 0.55); margin-top: 20px;">
+          <h3 class="mb-3" style="text-align: center; color: var(--text-main);">📈 Speed & Accuracy Progress</h3>
+          <div style="position: relative; height: 260px; width: 100%;">
+            <canvas id="stats-progress-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Weak Keys Diagnostic card -->
+        <div style="border-top: 1px solid var(--card-border); padding-top: 24px; margin-bottom: 24px;">
+          <h3 class="mb-4">🎯 Targeted Weak Keys Practice</h3>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px;">Improve your typing accuracy and muscle memory. Our smart diagnostics analyzer detects your slowest and most error-prone keys to generate an untimed 250-word practice session (2 paragraphs). This section is designed specifically to help you identify exactly which letters you are typing wrong!</p>
+          <button id="weak-keys-start-btn" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 12px; cursor: pointer;">Start Weak Keys Training 🚀</button>
+        </div>
+
         <div id="cert-print-section" style="border-top: 1px solid var(--card-border); padding-top: 24px;">
           <h3 class="mb-4">Print Your Typing Champion Certificate!</h3>
           <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 16px;">Have you completed all lessons? Type in your name below to download your printable TypeBuddy Certificate!</p>
@@ -786,8 +810,8 @@
   <script src="firebase-config.js"></script>
 
   <!-- Script Declarations -->
-  <script src="lessons.js?v=1.0.2"></script>
-  <script src="app.js?v=1.0.2"></script>
+  <script src="lessons.js?v=1.1.2"></script>
+  <script src="app.js?v=1.1.2"></script>
   <script>
     // Injects the current dynamic date for certificate automatically on load
     document.getElementById('certificate-date').textContent = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
