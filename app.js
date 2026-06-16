@@ -2753,7 +2753,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (signinForm) {
-    signinForm.addEventListener('submit', (e) => {
+    signinForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       clearSigninErrors();
 
@@ -2783,12 +2783,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
       const adminAccounts = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
-      
       const matchingAdmin = adminAccounts.find(a => a.email.toLowerCase() === emailVal.toLowerCase());
-      let isAdmin = false;
-      let matchingUser = null;
       
       if (matchingAdmin) {
         if (matchingAdmin.password !== passwordVal) {
@@ -2796,57 +2792,156 @@ document.addEventListener('DOMContentLoaded', () => {
           if (signinGeneralAlert) signinGeneralAlert.style.display = 'flex';
           return;
         }
-        isAdmin = true;
-        matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase()) || {
+        
+        signinSubmitBtn.disabled = true;
+        signinSubmitBtn.textContent = "Signing in... 🚀";
+        
+        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+        const matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase()) || {
           name: "Admin Revanth",
           email: emailVal,
           goal: "General Typing",
           level: "Advanced"
         };
+        
+        const nameVal = matchingUser.name || "User";
+        const goal = matchingUser.goal || "Improve Speed";
+        const level = matchingUser.level || "Beginner";
+
+        if (signinRememberCheckbox && signinRememberCheckbox.checked) {
+          localStorage.setItem('typebuddy_remembered_user', JSON.stringify({ email: emailVal }));
+        } else {
+          localStorage.removeItem('typebuddy_remembered_user');
+        }
+
+        const sessionData = {
+          name: nameVal,
+          email: emailVal,
+          goal: goal,
+          level: level,
+          signedInAt: new Date().toISOString(),
+          rememberMe: signinRememberCheckbox ? signinRememberCheckbox.checked : false,
+          isAdmin: true
+        };
+
+        localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
+        window.initUserSessionState(sessionData);
+
+        setTimeout(() => {
+          signinSubmitBtn.disabled = false;
+          signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
+          Router.navigateTo('welcome');
+        }, 600);
       } else {
-        matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase());
-        if (!matchingUser) {
-          setSigninError(signinEmailInput, "No account found with this email.");
-          if (signinGeneralAlert) signinGeneralAlert.style.display = 'flex';
-          return;
-        } else if (matchingUser.password && matchingUser.password !== passwordVal) {
-          setSigninError(signinPasswordInput, "Incorrect password.");
-          if (signinGeneralAlert) signinGeneralAlert.style.display = 'flex';
-          return;
+        // AWS Signin flow
+        signinSubmitBtn.disabled = true;
+        signinSubmitBtn.textContent = "Signing in... 🚀";
+
+        const email = emailVal;
+        const password = passwordVal;
+
+        console.log("AWS Signin - Request Payload", { email });
+
+        try {
+          const response = await fetch(
+            "https://6cgl4wue5c.execute-api.ap-south-1.amazonaws.com/default/typebuddy-signin",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                email,
+                password
+              })
+            }
+          );
+
+          console.log("AWS Signin - Response Status", response.status);
+
+          let data = null;
+          const responseText = await response.text();
+          try {
+            data = responseText ? JSON.parse(responseText) : null;
+          } catch (e) {
+            console.warn("AWS Signin - Response is not valid JSON:", responseText);
+          }
+
+          console.log("AWS Signin - Response Data", data);
+
+          if (response.status === 200 && data) {
+            const userDetails = data.user || data;
+            const nameVal = userDetails.name || "User";
+            const goal = userDetails.goal || "Improve Speed";
+            const level = userDetails.level || "Beginner";
+
+            // Save user details to registered users locally to keep cache updated
+            const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+            const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+            const userData = {
+              name: nameVal,
+              email: email,
+              password: password,
+              goal: goal,
+              level: level,
+              registeredAt: userDetails.registeredAt || new Date().toISOString()
+            };
+            if (existingIndex > -1) {
+              registeredUsers[existingIndex] = userData;
+            } else {
+              registeredUsers.push(userData);
+            }
+            localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
+
+            // Session creation
+            if (signinRememberCheckbox && signinRememberCheckbox.checked) {
+              localStorage.setItem('typebuddy_remembered_user', JSON.stringify({ email: emailVal }));
+            } else {
+              localStorage.removeItem('typebuddy_remembered_user');
+            }
+
+            const sessionData = {
+              name: nameVal,
+              email: emailVal,
+              goal: goal,
+              level: level,
+              signedInAt: new Date().toISOString(),
+              rememberMe: signinRememberCheckbox ? signinRememberCheckbox.checked : false,
+              isAdmin: false
+            };
+
+            localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
+            window.initUserSessionState(sessionData);
+
+            setTimeout(() => {
+              signinSubmitBtn.disabled = false;
+              signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
+              Router.navigateTo('welcome');
+            }, 600);
+          } else {
+            console.error("AWS Signin - Signin failed");
+            signinSubmitBtn.disabled = false;
+            signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
+            
+            const message = (data && (data.message || data.error)) || "Incorrect email or password.";
+            setSigninError(signinPasswordInput, message);
+            if (signinGeneralAlert) {
+              signinGeneralAlert.style.display = 'flex';
+              signinGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }
+        } catch (error) {
+          console.error("AWS Signin - Network/Server Error:", error);
+          signinSubmitBtn.disabled = false;
+          signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
+
+          setSigninError(signinPasswordInput, "A network error occurred. Please check your connection and try again.");
+          if (signinGeneralAlert) {
+            signinGeneralAlert.style.display = 'flex';
+            signinGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
         }
       }
-
-      signinSubmitBtn.disabled = true;
-      signinSubmitBtn.textContent = "Signing in... 🚀";
-
-      const nameVal = matchingUser.name || "User";
-      const goal = matchingUser.goal || "Improve Speed";
-      const level = matchingUser.level || "Beginner";
-
-      if (signinRememberCheckbox && signinRememberCheckbox.checked) {
-        localStorage.setItem('typebuddy_remembered_user', JSON.stringify({ email: emailVal }));
-      } else {
-        localStorage.removeItem('typebuddy_remembered_user');
-      }
-
-      const sessionData = {
-        name: nameVal,
-        email: emailVal,
-        goal: goal,
-        level: level,
-        signedInAt: new Date().toISOString(),
-        rememberMe: signinRememberCheckbox ? signinRememberCheckbox.checked : false,
-        isAdmin: isAdmin
-      };
-
-      localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
-      window.initUserSessionState(sessionData);
-
-      setTimeout(() => {
-        signinSubmitBtn.disabled = false;
-        signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
-        Router.navigateTo('welcome');
-      }, 600);
     });
   }
 
@@ -3038,52 +3133,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 600);
       };
 
-      const isFirebasePlaceholder = 
-        typeof firebaseConfig === 'undefined' || 
-        firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
-        firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+      // Prepare request payload for AWS integration
+      const payload = {
+        email: emailVal,
+        name: nameVal,
+        age: ageVal,
+        password: passwordVal,
+        goal: goalVal,
+        level: levelVal
+      };
 
-      if (isFirebasePlaceholder) {
-        console.warn("Operating in local simulation mode.");
-        saveSessionAndProceed();
-        return;
-      }
+      console.log("AWS Signup - Request Payload:", payload);
 
       try {
-        const userQuery = await db.collection("users").where("name", "==", nameVal).get();
-        if (!userQuery.empty) {
-          setSignupError(signupNameInput, "Username already exists. Please choose a different name.");
-          signupSubmitBtn.disabled = false;
-          signupSubmitBtn.textContent = "Start Learning! 🚀";
-          if (signupGeneralAlert) signupGeneralAlert.style.display = 'flex';
-          return;
-        }
-
-        const emailQuery = await db.collection("users").where("email", "==", emailVal).get();
-        if (!emailQuery.empty) {
-          setSignupError(signupEmailInput, "Email address is already registered. Please use a different email.");
-          signupSubmitBtn.disabled = false;
-          signupSubmitBtn.textContent = "Start Learning! 🚀";
-          if (signupGeneralAlert) signupGeneralAlert.style.display = 'flex';
-          return;
-        }
-
-        await db.collection("users").add({
-          name: nameVal,
-          age: ageVal,
-          email: emailVal,
-          password: passwordVal,
-          goal: goalVal,
-          level: levelVal,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        const response = await fetch("https://khspfvnsg2.execute-api.ap-south-1.amazonaws.com/default/typebuddy-signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
         });
+
+        console.log("AWS Signup - API Response Status:", response.status);
         
+        let responseData = null;
+        const responseText = await response.text();
+        try {
+          responseData = responseText ? JSON.parse(responseText) : null;
+        } catch (e) {
+          console.warn("AWS Signup - Response is not valid JSON:", responseText);
+        }
+
+        console.log("AWS Signup - API Response Data:", responseData);
+
+        if (!response.ok) {
+          // Handle API Gateway or Lambda failures (non-200 responses)
+          const errorMessage = (responseData && responseData.message) || (responseData && responseData.error) || responseText || `HTTP error ${response.status}`;
+          throw new Error(errorMessage);
+        }
+
+        console.log("AWS Signup - Registration Successful!");
         saveSessionAndProceed();
       } catch (error) {
-        console.error("Firestore Error:", error);
+        console.error("AWS Signup - Registration Failed:", error);
+        
         signupSubmitBtn.disabled = false;
         signupSubmitBtn.textContent = "Start Learning! 🚀";
-        alert(`❌ Database error: Unable to register user.\n\nDetails: ${error.message}`);
+
+        const displayMessage = `❌ Sign Up failed: ${error.message || "Network error"}`;
+        
+        if (signupGeneralAlert) {
+          signupGeneralAlert.innerHTML = `⚠️ ${displayMessage}`;
+          signupGeneralAlert.style.display = 'flex';
+          signupGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+          alert(displayMessage);
+        }
       }
     });
   }
