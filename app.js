@@ -919,6 +919,8 @@ const Router = {
       this.renderDashboardMap();
     } else if (viewId === 'stats') {
       this.renderStatsView();
+    } else if (viewId === 'profile') {
+      this.renderProfileView();
     } else if (viewId === 'welcome') {
       const completedCount = Object.keys(AppState.progress.completedLessons || {}).length;
       const startLearningBtn = document.getElementById('start-learning-btn');
@@ -1400,6 +1402,59 @@ const Router = {
     }
     
     this.updateCertificateAvailability();
+  },
+
+  renderProfileView() {
+    const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+    if (!userSession) {
+      this.navigateTo('signin');
+      return;
+    }
+
+    // Reset feedback alerts
+    const detailsSuccess = document.getElementById('profile-details-success');
+    const detailsError = document.getElementById('profile-details-error');
+    const passwordSuccess = document.getElementById('profile-password-success');
+    const passwordError = document.getElementById('profile-password-error');
+
+    if (detailsSuccess) detailsSuccess.style.display = 'none';
+    if (detailsError) detailsError.style.display = 'none';
+    if (passwordSuccess) passwordSuccess.style.display = 'none';
+    if (passwordError) passwordError.style.display = 'none';
+
+    // Clear input errors visual styling
+    document.querySelectorAll('#profile-view .input-group').forEach(group => {
+      group.classList.remove('invalid');
+    });
+    document.querySelectorAll('#profile-view .validation-message').forEach(span => {
+      span.textContent = "";
+    });
+
+    // Populate inputs from session / local DB
+    const emailInput = document.getElementById('profile-email');
+    const nameInput = document.getElementById('profile-full-name');
+    const ageInput = document.getElementById('profile-age');
+    const goalSelect = document.getElementById('profile-goal');
+    const levelSelect = document.getElementById('profile-level');
+
+    // Fetch fresh user data from local database
+    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+    const currentUser = registeredUsers.find(u => u.email.toLowerCase() === userSession.email.toLowerCase()) || {};
+
+    if (emailInput) emailInput.value = userSession.email;
+    if (nameInput) nameInput.value = currentUser.name || userSession.name || "";
+    if (ageInput) ageInput.value = currentUser.age || "";
+    if (goalSelect) goalSelect.value = currentUser.goal || userSession.goal || "General Typing";
+    if (levelSelect) levelSelect.value = currentUser.level || userSession.level || "Beginner";
+
+    // Clear password fields
+    const currentPassInput = document.getElementById('profile-current-password');
+    const newPassInput = document.getElementById('profile-new-password');
+    const confirmPassInput = document.getElementById('profile-confirm-password');
+
+    if (currentPassInput) currentPassInput.value = "";
+    if (newPassInput) newPassInput.value = "";
+    if (confirmPassInput) confirmPassInput.value = "";
   }
 };
 
@@ -3045,6 +3100,368 @@ document.addEventListener('DOMContentLoaded', () => {
   if (gotoSigninBtn) {
     gotoSigninBtn.addEventListener('click', () => {
       Router.navigateTo('signin');
+    });
+  }
+
+  // --- PROFILE VIEW NAVIGATION & BINDINGS ---
+  const userDisplayNameBtn = document.getElementById('user-display-name');
+  if (userDisplayNameBtn) {
+    userDisplayNameBtn.addEventListener('click', () => {
+      const session = localStorage.getItem('typebuddy_user_session');
+      if (session) {
+        Router.navigateTo('profile');
+      }
+    });
+  }
+
+  // Profile Details Form Submission
+  const profileDetailsForm = document.getElementById('profile-details-form');
+  const profileNameInput = document.getElementById('profile-full-name');
+  const profileAgeInput = document.getElementById('profile-age');
+  const profileGoalSelect = document.getElementById('profile-goal');
+  const profileLevelSelect = document.getElementById('profile-level');
+  const profileDetailsSuccess = document.getElementById('profile-details-success');
+  const profileDetailsError = document.getElementById('profile-details-error');
+  const profileDetailsSubmitBtn = document.getElementById('profile-details-submit-btn');
+
+  function clearProfileDetailsErrors() {
+    if (profileDetailsError) profileDetailsError.style.display = 'none';
+    if (profileDetailsSuccess) profileDetailsSuccess.style.display = 'none';
+    document.querySelectorAll('#profile-view #profile-details-form .input-group').forEach(group => {
+      group.classList.remove('invalid');
+    });
+    document.querySelectorAll('#profile-view #profile-details-form .validation-message').forEach(span => {
+      span.textContent = "";
+    });
+  }
+
+  function setProfileDetailsError(inputEl, message) {
+    const group = inputEl.closest('.input-group');
+    if (group) {
+      group.classList.add('invalid');
+      const errorSpan = group.querySelector('.validation-message');
+      if (errorSpan) {
+        errorSpan.textContent = message;
+      }
+    }
+  }
+
+  // Real-time Name checking (must be unique except self)
+  if (profileNameInput) {
+    profileNameInput.addEventListener('input', () => {
+      const nameVal = profileNameInput.value.trim();
+      const group = profileNameInput.closest('.input-group');
+      if (group) {
+        group.classList.remove('invalid');
+        const errorSpan = group.querySelector('.validation-message');
+        if (errorSpan) errorSpan.textContent = "";
+      }
+      if (!nameVal) return;
+      
+      const session = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+      if (!session) return;
+      
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const nameExists = registeredUsers.some(u => 
+        u.name.trim().toLowerCase() === nameVal.toLowerCase() && 
+        u.email.toLowerCase() !== session.email.toLowerCase()
+      );
+      if (nameExists) {
+        setProfileDetailsError(profileNameInput, "Username already exists. Please choose a different name.");
+      }
+    });
+  }
+
+  if (profileDetailsForm) {
+    profileDetailsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearProfileDetailsErrors();
+
+      const session = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+      if (!session) return;
+
+      let isValid = true;
+      const nameVal = profileNameInput.value.trim();
+      if (!nameVal) {
+        setProfileDetailsError(profileNameInput, "Full Name is required.");
+        isValid = false;
+      } else {
+        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+        const nameExists = registeredUsers.some(u => 
+          u.name.trim().toLowerCase() === nameVal.toLowerCase() && 
+          u.email.toLowerCase() !== session.email.toLowerCase()
+        );
+        if (nameExists) {
+          setProfileDetailsError(profileNameInput, "Username already exists. Please choose a different name.");
+          isValid = false;
+        }
+      }
+
+      const ageVal = parseInt(profileAgeInput.value, 10);
+      if (isNaN(ageVal)) {
+        setProfileDetailsError(profileAgeInput, "Age is required.");
+        isValid = false;
+      } else if (ageVal <= 5) {
+        setProfileDetailsError(profileAgeInput, "Age must be greater than 5.");
+        isValid = false;
+      }
+
+      const goalVal = profileGoalSelect.value;
+      if (!goalVal) {
+        setProfileDetailsError(profileGoalSelect, "Please choose a typing goal.");
+        isValid = false;
+      }
+
+      const levelVal = profileLevelSelect.value;
+      if (!levelVal) {
+        setProfileDetailsError(profileLevelSelect, "Please choose a typing level.");
+        isValid = false;
+      }
+
+      if (!isValid) {
+        if (profileDetailsError) {
+          profileDetailsError.style.display = 'flex';
+        }
+        return;
+      }
+
+      profileDetailsSubmitBtn.disabled = true;
+      profileDetailsSubmitBtn.textContent = "Saving details... 💾";
+
+      const updateLocalDatabase = () => {
+        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+        const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === session.email.toLowerCase());
+        
+        if (existingIndex > -1) {
+          registeredUsers[existingIndex].name = nameVal;
+          registeredUsers[existingIndex].age = ageVal;
+          registeredUsers[existingIndex].goal = goalVal;
+          registeredUsers[existingIndex].level = levelVal;
+          localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
+        }
+
+        // Update active session
+        session.name = nameVal;
+        session.goal = goalVal;
+        session.level = levelVal;
+        localStorage.setItem('typebuddy_user_session', JSON.stringify(session));
+
+        // Sync header state in real-time
+        window.initUserSessionState(session);
+
+        profileDetailsSubmitBtn.disabled = false;
+        profileDetailsSubmitBtn.textContent = "Save Details 💾";
+        if (profileDetailsSuccess) {
+          profileDetailsSuccess.style.display = 'flex';
+          setTimeout(() => {
+            profileDetailsSuccess.style.display = 'none';
+          }, 3000);
+        }
+      };
+
+      const isFirebasePlaceholder = 
+        typeof firebaseConfig === 'undefined' || 
+        firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
+        firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+
+      if (isFirebasePlaceholder) {
+        updateLocalDatabase();
+        return;
+      }
+
+      try {
+        // Double-check Firestore uniqueness of username
+        const nameQuery = await db.collection("users").where("name", "==", nameVal).get();
+        let nameConflict = false;
+        nameQuery.forEach(doc => {
+          if (doc.data().email.toLowerCase() !== session.email.toLowerCase()) {
+            nameConflict = true;
+          }
+        });
+
+        if (nameConflict) {
+          setProfileDetailsError(profileNameInput, "Username already exists. Please choose a different name.");
+          profileDetailsSubmitBtn.disabled = false;
+          profileDetailsSubmitBtn.textContent = "Save Details 💾";
+          if (profileDetailsError) profileDetailsError.style.display = 'flex';
+          return;
+        }
+
+        const userQuery = await db.collection("users").where("email", "==", session.email).get();
+        if (!userQuery.empty) {
+          const docId = userQuery.docs[0].id;
+          await db.collection("users").doc(docId).update({
+            name: nameVal,
+            age: ageVal,
+            goal: goalVal,
+            level: levelVal
+          });
+        }
+
+        updateLocalDatabase();
+      } catch (error) {
+        console.error("Firestore Update Error:", error);
+        profileDetailsSubmitBtn.disabled = false;
+        profileDetailsSubmitBtn.textContent = "Save Details 💾";
+        alert(`❌ Database error: Unable to update details.\n\nDetails: ${error.message}`);
+      }
+    });
+  }
+
+  // Profile Password Reset Form Submission
+  const profilePasswordForm = document.getElementById('profile-password-form');
+  const profileCurrentPasswordInput = document.getElementById('profile-current-password');
+  const profileNewPasswordInput = document.getElementById('profile-new-password');
+  const profileConfirmPasswordInput = document.getElementById('profile-confirm-password');
+  const profilePasswordSuccess = document.getElementById('profile-password-success');
+  const profilePasswordError = document.getElementById('profile-password-error');
+  const profilePasswordSubmitBtn = document.getElementById('profile-password-submit-btn');
+
+  function clearProfilePasswordErrors() {
+    if (profilePasswordError) profilePasswordError.style.display = 'none';
+    if (profilePasswordSuccess) profilePasswordSuccess.style.display = 'none';
+    document.querySelectorAll('#profile-view #profile-password-form .input-group').forEach(group => {
+      group.classList.remove('invalid');
+    });
+    document.querySelectorAll('#profile-view #profile-password-form .validation-message').forEach(span => {
+      span.textContent = "";
+    });
+  }
+
+  function setProfilePasswordError(inputEl, message) {
+    const group = inputEl.closest('.input-group');
+    if (group) {
+      group.classList.add('invalid');
+      const errorSpan = group.querySelector('.validation-message');
+      if (errorSpan) {
+        errorSpan.textContent = message;
+      }
+    }
+  }
+
+  if (profilePasswordForm) {
+    profilePasswordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearProfilePasswordErrors();
+
+      const session = JSON.parse(localStorage.getItem('typebuddy_user_session'));
+      if (!session) return;
+
+      let isValid = true;
+      const currentPasswordVal = profileCurrentPasswordInput.value;
+      const newPasswordVal = profileNewPasswordInput.value;
+      const confirmPasswordVal = profileConfirmPasswordInput.value;
+
+      // 1. Verify old password
+      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
+      const adminAccounts = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
+
+      let correctPassword = "";
+      if (session.isAdmin) {
+        const admin = adminAccounts.find(a => a.email.toLowerCase() === session.email.toLowerCase());
+        if (admin) {
+          correctPassword = admin.password;
+        }
+      } else {
+        const user = registeredUsers.find(u => u.email.toLowerCase() === session.email.toLowerCase());
+        if (user) {
+          correctPassword = user.password;
+        }
+      }
+
+      if (!currentPasswordVal) {
+        setProfilePasswordError(profileCurrentPasswordInput, "Current password is required.");
+        isValid = false;
+      } else if (currentPasswordVal !== correctPassword) {
+        setProfilePasswordError(profileCurrentPasswordInput, "Incorrect current password.");
+        isValid = false;
+      }
+
+      // 2. Validate new password
+      if (!newPasswordVal) {
+        setProfilePasswordError(profileNewPasswordInput, "New password is required.");
+        isValid = false;
+      } else if (newPasswordVal.length < 6) {
+        setProfilePasswordError(profileNewPasswordInput, "Password must be at least 6 characters.");
+        isValid = false;
+      }
+
+      // 3. Confirm new password
+      if (!confirmPasswordVal) {
+        setProfilePasswordError(profileConfirmPasswordInput, "Please confirm your new password.");
+        isValid = false;
+      } else if (confirmPasswordVal !== newPasswordVal) {
+        setProfilePasswordError(profileConfirmPasswordInput, "Passwords do not match.");
+        isValid = false;
+      }
+
+      if (!isValid) {
+        if (profilePasswordError) {
+          profilePasswordError.style.display = 'flex';
+        }
+        return;
+      }
+
+      profilePasswordSubmitBtn.disabled = true;
+      profilePasswordSubmitBtn.textContent = "Updating password... ⏳";
+
+      const updateLocalPassword = () => {
+        if (session.isAdmin) {
+          const matchingAdminIndex = adminAccounts.findIndex(a => a.email.toLowerCase() === session.email.toLowerCase());
+          if (matchingAdminIndex > -1) {
+            adminAccounts[matchingAdminIndex].password = newPasswordVal;
+            localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(adminAccounts));
+          }
+        }
+        
+        // Also update in user registry regardless of admin status
+        const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === session.email.toLowerCase());
+        if (existingIndex > -1) {
+          registeredUsers[existingIndex].password = newPasswordVal;
+          localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
+        }
+
+        profilePasswordSubmitBtn.disabled = false;
+        profilePasswordSubmitBtn.textContent = "Reset Password 🔒";
+        
+        // Clear fields
+        profileCurrentPasswordInput.value = "";
+        profileNewPasswordInput.value = "";
+        profileConfirmPasswordInput.value = "";
+
+        if (profilePasswordSuccess) {
+          profilePasswordSuccess.style.display = 'flex';
+          setTimeout(() => {
+            profilePasswordSuccess.style.display = 'none';
+          }, 3000);
+        }
+      };
+
+      const isFirebasePlaceholder = 
+        typeof firebaseConfig === 'undefined' || 
+        firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
+        firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
+
+      if (isFirebasePlaceholder) {
+        updateLocalPassword();
+        return;
+      }
+
+      try {
+        const userQuery = await db.collection("users").where("email", "==", session.email).get();
+        if (!userQuery.empty) {
+          const docId = userQuery.docs[0].id;
+          await db.collection("users").doc(docId).update({
+            password: newPasswordVal
+          });
+        }
+        updateLocalPassword();
+      } catch (error) {
+        console.error("Firestore Password Update Error:", error);
+        profilePasswordSubmitBtn.disabled = false;
+        profilePasswordSubmitBtn.textContent = "Reset Password 🔒";
+        alert(`❌ Database error: Unable to reset password.\n\nDetails: ${error.message}`);
+      }
     });
   }
 

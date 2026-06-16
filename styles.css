@@ -1618,9 +1618,10 @@ main {
   font-weight: 600;
 }
 
-/* Scoped Form Control Styling for Sign In & Sign Up Views */
+/* Scoped Form Control Styling for Sign In, Sign Up & Profile Views */
 #signin-view .input-group,
-#signup-view .input-group {
+#signup-view .input-group,
+#profile-view .input-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1629,7 +1630,8 @@ main {
 }
 
 #signin-view label,
-#signup-view label {
+#signup-view label,
+#profile-view label {
   font-size: 0.85rem;
   font-weight: 700;
   color: #4c1d95;
@@ -1642,7 +1644,9 @@ main {
 #signin-view input,
 #signin-view select,
 #signup-view input,
-#signup-view select {
+#signup-view select,
+#profile-view input,
+#profile-view select {
   width: 100%;
   padding: 12px 16px;
   border-radius: 14px;
@@ -1660,7 +1664,9 @@ main {
 #signin-view input:focus,
 #signin-view select:focus,
 #signup-view input:focus,
-#signup-view select:focus {
+#signup-view select:focus,
+#profile-view input:focus,
+#profile-view select:focus {
   border-color: #8b5cf6;
   background: #ffffff;
   box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15),
@@ -1668,7 +1674,8 @@ main {
 }
 
 #signin-view select option,
-#signup-view select option {
+#signup-view select option,
+#profile-view select option {
   background: #ffffff;
   color: #4c1d95;
   font-weight: 600;

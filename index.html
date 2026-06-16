@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TypeBuddy - Anyone Can Learn Typing!</title>
   <meta name="description" content="An interactive, gamified typing tutor designed for kids and adults. Sourced from standard typing textbooks.">
-  <link rel="stylesheet" href="styles.css?v=1.1.3">
+  <link rel="stylesheet" href="styles.css?v=1.1.4">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -43,7 +43,7 @@
 
       <!-- User badge & sign out -->
       <div id="user-badge" class="flex-row-center glass-card" style="padding: 10px 20px; border-radius: 20px; gap: 12px; box-shadow: none;">
-        <span id="user-display-name" style="font-weight: 600; font-size: 1.1rem; color: var(--text-main);">👤 Loading...</span>
+        <span id="user-display-name" style="font-weight: 600; font-size: 1.1rem; color: var(--text-main); cursor: pointer;" title="View Profile">👤 Loading...</span>
         <button id="signout-btn" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; display: flex; align-items: center;" title="Sign Out">🚪</button>
       </div>
     </div>
@@ -463,6 +463,116 @@
       </div>
     </section>
 
+    <!-- 7b. USER PROFILE VIEW -->
+    <section id="profile-view" class="view-section">
+      <div class="glass-card" style="max-width: 650px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+        <h2 class="text-center" style="display: flex; align-items: center; justify-content: center; gap: 10px;">👤 Your Profile</h2>
+        
+        <!-- Profile Details Card Section -->
+        <div style="border-bottom: 1px solid var(--card-border); padding-bottom: 24px;">
+          <h3 class="mb-4">Edit Details</h3>
+          
+          <div id="profile-details-success" class="error-alert-box" style="display: none; background: #ecfdf5; border-color: #a7f3d0; color: #059669; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; margin-bottom: 16px; align-items: center; gap: 8px;">
+            ✅ Profile details updated successfully!
+          </div>
+          <div id="profile-details-error" class="error-alert-box" style="display: none;">
+            ⚠️ Please correct the errors in the form below.
+          </div>
+
+          <form id="profile-details-form" novalidate style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Email Address (Read-only) -->
+            <div class="input-group">
+              <label for="profile-email">📧 Email Address (Cannot be changed)</label>
+              <input type="email" id="profile-email" readonly style="background: rgba(0, 0, 0, 0.05); cursor: not-allowed; border-color: var(--key-border);">
+            </div>
+            
+            <!-- Full Name -->
+            <div class="input-group">
+              <label for="profile-full-name">👤 Full Name</label>
+              <input type="text" id="profile-full-name" placeholder="Enter your full name" required>
+              <span class="validation-message" id="profile-name-error"></span>
+            </div>
+
+            <!-- Age -->
+            <div class="input-group">
+              <label for="profile-age">🎂 Age</label>
+              <input type="number" id="profile-age" placeholder="Age" min="6" required>
+              <span class="validation-message" id="profile-age-error"></span>
+            </div>
+
+            <!-- Typing Goal & Typing Level Grid -->
+            <div class="form-grid-2">
+              <!-- Typing Goal Dropdown -->
+              <div class="input-group">
+                <label for="profile-goal">🎯 Typing Goal</label>
+                <div class="select-wrapper">
+                  <select id="profile-goal" required>
+                    <option value="Improve Speed">Improve Speed ⚡</option>
+                    <option value="Exam Preparation">Exam Preparation 📝</option>
+                    <option value="Coding Practice">Coding Practice 💻</option>
+                    <option value="General Typing">General Typing ⌨️</option>
+                  </select>
+                </div>
+                <span class="validation-message" id="profile-goal-error"></span>
+              </div>
+
+              <!-- Typing Level Dropdown -->
+              <div class="input-group">
+                <label for="profile-level">📊 Typing Level</label>
+                <div class="select-wrapper">
+                  <select id="profile-level" required>
+                    <option value="Beginner">Beginner 🌱</option>
+                    <option value="Intermediate">Intermediate 🚀</option>
+                    <option value="Advanced">Advanced 🏆</option>
+                  </select>
+                </div>
+                <span class="validation-message" id="profile-level-error"></span>
+              </div>
+            </div>
+
+            <button type="submit" id="profile-details-submit-btn" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 12px; cursor: pointer;">Save Details 💾</button>
+          </form>
+        </div>
+
+        <!-- Reset Password Card Section -->
+        <div>
+          <h3 class="mb-4">Reset Password</h3>
+          
+          <div id="profile-password-success" class="error-alert-box" style="display: none; background: #ecfdf5; border-color: #a7f3d0; color: #059669; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; margin-bottom: 16px; align-items: center; gap: 8px;">
+            ✅ Password updated successfully!
+          </div>
+          <div id="profile-password-error" class="error-alert-box" style="display: none;">
+            ⚠️ Please correct the errors in the form below.
+          </div>
+
+          <form id="profile-password-form" novalidate style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Current Password -->
+            <div class="input-group">
+              <label for="profile-current-password">🔑 Current Password</label>
+              <input type="password" id="profile-current-password" placeholder="Enter current password" required>
+              <span class="validation-message" id="profile-current-password-error"></span>
+            </div>
+
+            <!-- New Password -->
+            <div class="input-group">
+              <label for="profile-new-password">🔒 New Password</label>
+              <input type="password" id="profile-new-password" placeholder="Enter new password (min 6 characters)" required>
+              <span class="validation-message" id="profile-new-password-error"></span>
+            </div>
+
+            <!-- Confirm New Password -->
+            <div class="input-group">
+              <label for="profile-confirm-password">🔁 Confirm New Password</label>
+              <input type="password" id="profile-confirm-password" placeholder="Confirm new password" required>
+              <span class="validation-message" id="profile-confirm-password-error"></span>
+            </div>
+
+            <button type="submit" id="profile-password-submit-btn" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 12px; cursor: pointer;">Reset Password 🔒</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
     <!-- 8. SIGN IN VIEW -->
     <section id="signin-view" class="view-section">
       <div class="signin-wrapper">
@@ -810,8 +920,8 @@
   <script src="firebase-config.js"></script>
 
   <!-- Script Declarations -->
-  <script src="lessons.js?v=1.1.3"></script>
-  <script src="app.js?v=1.1.3"></script>
+  <script src="lessons.js?v=1.1.4"></script>
+  <script src="app.js?v=1.1.4"></script>
   <script>
     // Injects the current dynamic date for certificate automatically on load
     document.getElementById('certificate-date').textContent = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
