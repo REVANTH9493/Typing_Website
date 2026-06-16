@@ -2845,7 +2845,6 @@ document.addEventListener('DOMContentLoaded', () => {
           signinGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       }
-      }
     });
   }
 
