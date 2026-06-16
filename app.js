@@ -2332,7 +2332,8 @@ document.addEventListener('DOMContentLoaded', () => {
             password: passwordVal,
             goal: "General Typing",
             level: "Advanced",
-            isAdmin: true
+            isAdmin: true,
+            isadmin: true
           };
 
           try {
@@ -2794,7 +2795,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const goal = userDetails.goal || "Improve Speed";
           const level = userDetails.level || "Beginner";
           const ageVal = userDetails.age || "";
-          const isAdmin = userDetails.isAdmin || email.toLowerCase() === 'revanth@gmail.com';
+          const isAdmin = userDetails.isAdmin || userDetails.isadmin || email.toLowerCase() === 'revanth@gmail.com';
 
           // Session creation
           if (signinRememberCheckbox && signinRememberCheckbox.checked) {
