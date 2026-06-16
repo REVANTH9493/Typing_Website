@@ -1,12 +1,5 @@
 // TypeBuddy Core Application Logic
 
-// Seed default admin account
-const defaultAdmins = [
-  { email: 'revanth@gmail.com', password: 'Revanth@123' }
-];
-if (!localStorage.getItem('typebuddy_admin_accounts')) {
-  localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(defaultAdmins));
-}
 
 // Web Audio API Synthesizer (Zero-dependency sound effects)
 const SoundSynth = {
@@ -156,50 +149,16 @@ const AppState = {
     const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
     if (!userSession || !userSession.email) return;
     
-    const isFirebasePlaceholder = 
-      typeof firebaseConfig === 'undefined' || 
-      firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
-      firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
-      
-    if (isFirebasePlaceholder) {
-      // Load from local registry database
-      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-      const user = registeredUsers.find(u => u.email.toLowerCase() === userSession.email.toLowerCase());
-      if (user && user.progress) {
-        this.progress = { ...this.progress, ...user.progress };
-        if (this.currentView === 'dashboard') {
-          Router.renderDashboardMap();
-        } else if (this.currentView === 'stats') {
-          Router.renderStatsView();
-        }
+    const userEmail = userSession.email;
+    const key = `typebuddy_progress_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const cachedProgress = localStorage.getItem(key);
+    if (cachedProgress) {
+      this.progress = { ...this.progress, ...JSON.parse(cachedProgress) };
+      if (this.currentView === 'dashboard') {
+        Router.renderDashboardMap();
+      } else if (this.currentView === 'stats') {
+        Router.renderStatsView();
       }
-      return;
-    }
-    
-    // Firestore integration
-    try {
-      const querySnapshot = await db.collection("users").where("email", "==", userSession.email).get();
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        const data = doc.data();
-        if (data.progress) {
-          this.progress = { ...this.progress, ...data.progress };
-          
-          // Cache locally
-          const userEmail = userSession.email;
-          const key = `typebuddy_progress_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-          localStorage.setItem(key, JSON.stringify(this.progress));
-          localStorage.setItem('typebuddy_progress', JSON.stringify(this.progress));
-          
-          if (this.currentView === 'dashboard') {
-            Router.renderDashboardMap();
-          } else if (this.currentView === 'stats') {
-            Router.renderStatsView();
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Error syncing progress from Firestore:", e);
     }
   },
   
@@ -241,38 +200,6 @@ const AppState = {
     const welcomeSubtitleEl = document.getElementById('welcome-subtitle');
     if (welcomeSubtitleEl) {
       welcomeSubtitleEl.textContent = `You are on your way to mastering touch typing! Your goal is "${userSession.goal}" and your skill level is "${userSession.level}". Let's start practicing!`;
-    }
-    
-    // 4. Update local registry database
-    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-    const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === userEmail.toLowerCase());
-    if (existingIndex > -1) {
-      registeredUsers[existingIndex].progress = this.progress;
-      registeredUsers[existingIndex].level = currentLevelString;
-      localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
-    }
-    
-    // 5. Update Firestore database (if active)
-    const isFirebasePlaceholder = 
-      typeof firebaseConfig === 'undefined' || 
-      firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
-      firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
-      
-    if (!isFirebasePlaceholder) {
-      try {
-        const querySnapshot = await db.collection("users").where("email", "==", userEmail).get();
-        if (!querySnapshot.empty) {
-          const docId = querySnapshot.docs[0].id;
-          await db.collection("users").doc(docId).update({
-            progress: this.progress,
-            level: currentLevelString,
-            lastActiveAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-          console.log("Progress and level successfully updated in Firestore database!");
-        }
-      } catch (e) {
-        console.error("Error writing progress to Firestore database:", e);
-      }
     }
   }
 };
@@ -1119,14 +1046,11 @@ const Router = {
         const remembered = localStorage.getItem('typebuddy_remembered_user');
         if (remembered) {
           try {
-            const { email } = JSON.parse(remembered);
+            const { email, name } = JSON.parse(remembered);
             if (email) emailInput.value = email;
             if (rememberCheckbox) rememberCheckbox.checked = true;
-            
-            const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-            const matchingUser = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-            if (matchingUser && statusText) {
-              statusText.textContent = `Welcome back, ${matchingUser.name}! 🐒`;
+            if (name && statusText) {
+              statusText.textContent = `Welcome back, ${name}! 🐒`;
             }
           } catch (e) {
             console.error(e);
@@ -1437,24 +1361,11 @@ const Router = {
     const goalSelect = document.getElementById('profile-goal');
     const levelSelect = document.getElementById('profile-level');
 
-    // Fetch fresh user data from local database
-    const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-    const currentUser = registeredUsers.find(u => u.email.toLowerCase() === userSession.email.toLowerCase()) || {};
-
     if (emailInput) emailInput.value = userSession.email;
-    if (nameInput) nameInput.value = currentUser.name || userSession.name || "";
-    if (ageInput) ageInput.value = currentUser.age || "";
-    if (goalSelect) goalSelect.value = currentUser.goal || userSession.goal || "General Typing";
-    if (levelSelect) levelSelect.value = currentUser.level || userSession.level || "Beginner";
-
-    // Clear password fields
-    const currentPassInput = document.getElementById('profile-current-password');
-    const newPassInput = document.getElementById('profile-new-password');
-    const confirmPassInput = document.getElementById('profile-confirm-password');
-
-    if (currentPassInput) currentPassInput.value = "";
-    if (newPassInput) newPassInput.value = "";
-    if (confirmPassInput) confirmPassInput.value = "";
+    if (nameInput) nameInput.value = userSession.name || "";
+    if (ageInput) ageInput.value = userSession.age || "";
+    if (goalSelect) goalSelect.value = userSession.goal || "General Typing";
+    if (levelSelect) levelSelect.value = userSession.level || "Beginner";
   }
 };
 
@@ -2336,8 +2247,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const renderAdminsList = () => {
         if (!adminListEl) return;
         adminListEl.innerHTML = '';
-        const admins = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
-        admins.forEach(admin => {
+        const adminEmails = JSON.parse(localStorage.getItem('typebuddy_admin_emails') || '[]');
+        
+        // Ensure the default admin is always in the list
+        if (!adminEmails.includes('revanth@gmail.com')) {
+          adminEmails.push('revanth@gmail.com');
+          localStorage.setItem('typebuddy_admin_emails', JSON.stringify(adminEmails));
+        }
+
+        adminEmails.forEach(email => {
           const li = document.createElement('li');
           li.style.background = 'rgba(255, 255, 255, 0.4)';
           li.style.border = '1px solid var(--key-border)';
@@ -2351,7 +2269,7 @@ document.addEventListener('DOMContentLoaded', () => {
           li.style.fontWeight = '600';
           li.style.color = 'var(--text-main)';
           li.innerHTML = `
-            <span>📧 ${admin.email} (Password: ${admin.password})</span>
+            <span>📧 ${email}</span>
             <span style="background: rgba(239, 68, 68, 0.1); color: #dc2626; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">Admin</span>
           `;
           adminListEl.appendChild(li);
@@ -2359,7 +2277,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       if (addAdminBtn && adminEmailInput && adminPasswordInput) {
-        addAdminBtn.addEventListener('click', () => {
+        addAdminBtn.addEventListener('click', async () => {
           if (successAlert) successAlert.style.display = 'none';
           if (errorAlert) errorAlert.style.display = 'none';
 
@@ -2391,8 +2309,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          const admins = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
-          const exists = admins.some(a => a.email.toLowerCase() === emailVal.toLowerCase());
+          const adminEmails = JSON.parse(localStorage.getItem('typebuddy_admin_emails') || '[]');
+          const exists = adminEmails.some(email => email.toLowerCase() === emailVal.toLowerCase());
           
           if (exists) {
             if (errorAlert) {
@@ -2402,16 +2320,67 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          // Add to list and save
-          admins.push({ email: emailVal, password: passwordVal });
-          localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(admins));
+          // Disable button
+          addAdminBtn.disabled = true;
+          addAdminBtn.textContent = "Creating Admin in AWS... ⏳";
 
-          // Clear inputs
-          adminEmailInput.value = '';
-          adminPasswordInput.value = '';
+          // Prepare payload for AWS signup endpoint
+          const payload = {
+            email: emailVal,
+            name: "Admin User",
+            age: 30,
+            password: passwordVal,
+            goal: "General Typing",
+            level: "Advanced",
+            isAdmin: true
+          };
 
-          if (successAlert) successAlert.style.display = 'flex';
-          renderAdminsList();
+          try {
+            const response = await fetch("https://khspfvnsg2.execute-api.ap-south-1.amazonaws.com/default/typebuddy-signup", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(payload)
+            });
+
+            let responseData = null;
+            const responseText = await response.text();
+            try {
+              responseData = responseText ? JSON.parse(responseText) : null;
+            } catch (e) {
+              console.warn("AWS Admin Signup - Response is not valid JSON:", responseText);
+            }
+
+            if (!response.ok) {
+              const errorMessage = (responseData && (responseData.message || responseData.error)) || responseText || `HTTP error ${response.status}`;
+              throw new Error(errorMessage);
+            }
+
+            // Successfully added to AWS, update local cache
+            adminEmails.push(emailVal);
+            localStorage.setItem('typebuddy_admin_emails', JSON.stringify(adminEmails));
+
+            // Clear inputs
+            adminEmailInput.value = '';
+            adminPasswordInput.value = '';
+
+            if (successAlert) {
+              successAlert.textContent = "✅ Admin account created successfully in AWS!";
+              successAlert.style.display = 'flex';
+            }
+            renderAdminsList();
+
+          } catch (err) {
+            console.error("AWS Admin Creation Error:", err);
+            if (errorAlert) {
+              errorAlert.textContent = `❌ AWS Error: ${err.message || "Failed to register admin."}`;
+              errorAlert.style.display = 'flex';
+            }
+          } finally {
+            addAdminBtn.disabled = false;
+            addAdminBtn.textContent = "Create Admin Account 🛡️";
+          }
         });
       }
 
@@ -2783,164 +2752,99 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const adminAccounts = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
-      const matchingAdmin = adminAccounts.find(a => a.email.toLowerCase() === emailVal.toLowerCase());
-      
-      if (matchingAdmin) {
-        if (matchingAdmin.password !== passwordVal) {
-          setSigninError(signinPasswordInput, "Incorrect password.");
-          if (signinGeneralAlert) signinGeneralAlert.style.display = 'flex';
-          return;
-        }
-        
-        signinSubmitBtn.disabled = true;
-        signinSubmitBtn.textContent = "Signing in... 🚀";
-        
-        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-        const matchingUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase()) || {
-          name: "Admin Revanth",
-          email: emailVal,
-          goal: "General Typing",
-          level: "Advanced"
-        };
-        
-        const nameVal = matchingUser.name || "User";
-        const goal = matchingUser.goal || "Improve Speed";
-        const level = matchingUser.level || "Beginner";
+      // AWS Signin flow
+      signinSubmitBtn.disabled = true;
+      signinSubmitBtn.textContent = "Signing in... 🚀";
 
-        if (signinRememberCheckbox && signinRememberCheckbox.checked) {
-          localStorage.setItem('typebuddy_remembered_user', JSON.stringify({ email: emailVal }));
-        } else {
-          localStorage.removeItem('typebuddy_remembered_user');
-        }
+      const email = emailVal;
+      const password = passwordVal;
 
-        const sessionData = {
-          name: nameVal,
-          email: emailVal,
-          goal: goal,
-          level: level,
-          signedInAt: new Date().toISOString(),
-          rememberMe: signinRememberCheckbox ? signinRememberCheckbox.checked : false,
-          isAdmin: true
-        };
+      console.log("AWS Signin - Request Payload", { email });
 
-        localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
-        window.initUserSessionState(sessionData);
+      try {
+        const response = await fetch(
+          "https://6cgl4wue5c.execute-api.ap-south-1.amazonaws.com/default/typebuddy-signin",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              email,
+              password
+            })
+          }
+        );
 
-        setTimeout(() => {
-          signinSubmitBtn.disabled = false;
-          signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
-          Router.navigateTo('welcome');
-        }, 600);
-      } else {
-        // AWS Signin flow
-        signinSubmitBtn.disabled = true;
-        signinSubmitBtn.textContent = "Signing in... 🚀";
+        console.log("AWS Signin - Response Status", response.status);
 
-        const email = emailVal;
-        const password = passwordVal;
-
-        console.log("AWS Signin - Request Payload", { email });
-
+        let data = null;
+        const responseText = await response.text();
         try {
-          const response = await fetch(
-            "https://6cgl4wue5c.execute-api.ap-south-1.amazonaws.com/default/typebuddy-signin",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                email,
-                password
-              })
-            }
-          );
+          data = responseText ? JSON.parse(responseText) : null;
+        } catch (e) {
+          console.warn("AWS Signin - Response is not valid JSON:", responseText);
+        }
 
-          console.log("AWS Signin - Response Status", response.status);
+        console.log("AWS Signin - Response Data", data);
 
-          let data = null;
-          const responseText = await response.text();
-          try {
-            data = responseText ? JSON.parse(responseText) : null;
-          } catch (e) {
-            console.warn("AWS Signin - Response is not valid JSON:", responseText);
+        if (response.status === 200 && data) {
+          const userDetails = data.user || data;
+          const nameVal = userDetails.name || "User";
+          const goal = userDetails.goal || "Improve Speed";
+          const level = userDetails.level || "Beginner";
+          const ageVal = userDetails.age || "";
+          const isAdmin = userDetails.isAdmin || email.toLowerCase() === 'revanth@gmail.com';
+
+          // Session creation
+          if (signinRememberCheckbox && signinRememberCheckbox.checked) {
+            localStorage.setItem('typebuddy_remembered_user', JSON.stringify({ email: emailVal, name: nameVal }));
+          } else {
+            localStorage.removeItem('typebuddy_remembered_user');
           }
 
-          console.log("AWS Signin - Response Data", data);
+          const sessionData = {
+            name: nameVal,
+            email: emailVal,
+            age: ageVal,
+            goal: goal,
+            level: level,
+            signedInAt: new Date().toISOString(),
+            rememberMe: signinRememberCheckbox ? signinRememberCheckbox.checked : false,
+            isAdmin: isAdmin
+          };
 
-          if (response.status === 200 && data) {
-            const userDetails = data.user || data;
-            const nameVal = userDetails.name || "User";
-            const goal = userDetails.goal || "Improve Speed";
-            const level = userDetails.level || "Beginner";
+          localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
+          window.initUserSessionState(sessionData);
 
-            // Save user details to registered users locally to keep cache updated
-            const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-            const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-            const userData = {
-              name: nameVal,
-              email: email,
-              password: password,
-              goal: goal,
-              level: level,
-              registeredAt: userDetails.registeredAt || new Date().toISOString()
-            };
-            if (existingIndex > -1) {
-              registeredUsers[existingIndex] = userData;
-            } else {
-              registeredUsers.push(userData);
-            }
-            localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
-
-            // Session creation
-            if (signinRememberCheckbox && signinRememberCheckbox.checked) {
-              localStorage.setItem('typebuddy_remembered_user', JSON.stringify({ email: emailVal }));
-            } else {
-              localStorage.removeItem('typebuddy_remembered_user');
-            }
-
-            const sessionData = {
-              name: nameVal,
-              email: emailVal,
-              goal: goal,
-              level: level,
-              signedInAt: new Date().toISOString(),
-              rememberMe: signinRememberCheckbox ? signinRememberCheckbox.checked : false,
-              isAdmin: false
-            };
-
-            localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
-            window.initUserSessionState(sessionData);
-
-            setTimeout(() => {
-              signinSubmitBtn.disabled = false;
-              signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
-              Router.navigateTo('welcome');
-            }, 600);
-          } else {
-            console.error("AWS Signin - Signin failed");
+          setTimeout(() => {
             signinSubmitBtn.disabled = false;
             signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
-            
-            const message = (data && (data.message || data.error)) || "Incorrect email or password.";
-            setSigninError(signinPasswordInput, message);
-            if (signinGeneralAlert) {
-              signinGeneralAlert.style.display = 'flex';
-              signinGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-          }
-        } catch (error) {
-          console.error("AWS Signin - Network/Server Error:", error);
+            Router.navigateTo('welcome');
+          }, 600);
+        } else {
+          console.error("AWS Signin - Signin failed");
           signinSubmitBtn.disabled = false;
           signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
-
-          setSigninError(signinPasswordInput, "A network error occurred. Please check your connection and try again.");
+          
+          const message = (data && (data.message || data.error)) || "Incorrect email or password.";
+          setSigninError(signinPasswordInput, message);
           if (signinGeneralAlert) {
             signinGeneralAlert.style.display = 'flex';
             signinGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           }
         }
+      } catch (error) {
+        console.error("AWS Signin - Network/Server Error:", error);
+        signinSubmitBtn.disabled = false;
+        signinSubmitBtn.textContent = "Sign In & Learn! 🚀";
+
+        setSigninError(signinPasswordInput, "A network error occurred. Please check your connection and try again.");
+        if (signinGeneralAlert) {
+          signinGeneralAlert.style.display = 'flex';
+          signinGeneralAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
       }
     });
   }
@@ -2977,7 +2881,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Real-time Name checking (must be unique)
+  // Real-time Name checking
   if (signupNameInput) {
     signupNameInput.addEventListener('input', () => {
       const nameVal = signupNameInput.value.trim();
@@ -2987,17 +2891,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const errorSpan = group.querySelector('.validation-message');
         if (errorSpan) errorSpan.textContent = "";
       }
-      if (!nameVal) return;
-      
-      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-      const nameExists = registeredUsers.some(u => u.name.trim().toLowerCase() === nameVal.toLowerCase());
-      if (nameExists) {
-        setSignupError(signupNameInput, "Username already exists. Please choose a different name.");
-      }
     });
   }
 
-  // Real-time Email checking (must be unique)
+  // Real-time Email checking
   if (signupEmailInput) {
     signupEmailInput.addEventListener('input', () => {
       const emailVal = signupEmailInput.value.trim();
@@ -3014,12 +2911,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setSignupError(signupEmailInput, "Please enter a valid email address.");
         return;
       }
-      
-      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-      const emailExists = registeredUsers.some(u => u.email.trim().toLowerCase() === emailVal.toLowerCase());
-      if (emailExists) {
-        setSignupError(signupEmailInput, "Email address is already registered. Please use a different email.");
-      }
     });
   }
 
@@ -3034,13 +2925,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!nameVal) {
         setSignupError(signupNameInput, "Full Name is required.");
         isValid = false;
-      } else {
-        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-        const nameExists = registeredUsers.some(u => u.name.trim().toLowerCase() === nameVal.toLowerCase());
-        if (nameExists) {
-          setSignupError(signupNameInput, "Username already exists. Please choose a different name.");
-          isValid = false;
-        }
       }
 
       const ageVal = parseInt(signupAgeInput.value, 10);
@@ -3060,13 +2944,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (!emailRegex.test(emailVal)) {
         setSignupError(signupEmailInput, "Please enter a valid email address.");
         isValid = false;
-      } else {
-        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-        const emailExists = registeredUsers.some(u => u.email.trim().toLowerCase() === emailVal.toLowerCase());
-        if (emailExists) {
-          setSignupError(signupEmailInput, "Email address is already registered. Please use a different email.");
-          isValid = false;
-        }
       }
 
       const passwordVal = signupPasswordInput.value;
@@ -3102,25 +2979,16 @@ document.addEventListener('DOMContentLoaded', () => {
       signupSubmitBtn.textContent = "Creating Session... ⏳";
 
       const saveSessionAndProceed = () => {
-        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-        const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === emailVal.toLowerCase());
-        const userData = { name: nameVal, email: emailVal, password: passwordVal, goal: goalVal, level: levelVal, registeredAt: new Date().toISOString() };
-        if (existingIndex > -1) {
-          registeredUsers[existingIndex] = userData;
-        } else {
-          registeredUsers.push(userData);
-        }
-        localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
-
         // Auto-login session directly
         const sessionData = {
           name: nameVal,
           email: emailVal,
+          age: ageVal,
           goal: goalVal,
           level: levelVal,
           signedInAt: new Date().toISOString(),
           rememberMe: false,
-          isAdmin: false
+          isAdmin: emailVal.toLowerCase() === 'revanth@gmail.com'
         };
         localStorage.setItem('typebuddy_user_session', JSON.stringify(sessionData));
         window.initUserSessionState(sessionData);
@@ -3251,32 +3119,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Real-time Name checking (must be unique except self)
-  if (profileNameInput) {
-    profileNameInput.addEventListener('input', () => {
-      const nameVal = profileNameInput.value.trim();
-      const group = profileNameInput.closest('.input-group');
-      if (group) {
-        group.classList.remove('invalid');
-        const errorSpan = group.querySelector('.validation-message');
-        if (errorSpan) errorSpan.textContent = "";
-      }
-      if (!nameVal) return;
-      
-      const session = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-      if (!session) return;
-      
-      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-      const nameExists = registeredUsers.some(u => 
-        u.name.trim().toLowerCase() === nameVal.toLowerCase() && 
-        u.email.toLowerCase() !== session.email.toLowerCase()
-      );
-      if (nameExists) {
-        setProfileDetailsError(profileNameInput, "Username already exists. Please choose a different name.");
-      }
-    });
-  }
-
   if (profileDetailsForm) {
     profileDetailsForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -3290,16 +3132,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!nameVal) {
         setProfileDetailsError(profileNameInput, "Full Name is required.");
         isValid = false;
-      } else {
-        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-        const nameExists = registeredUsers.some(u => 
-          u.name.trim().toLowerCase() === nameVal.toLowerCase() && 
-          u.email.toLowerCase() !== session.email.toLowerCase()
-        );
-        if (nameExists) {
-          setProfileDetailsError(profileNameInput, "Username already exists. Please choose a different name.");
-          isValid = false;
-        }
       }
 
       const ageVal = parseInt(profileAgeInput.value, 10);
@@ -3333,239 +3165,23 @@ document.addEventListener('DOMContentLoaded', () => {
       profileDetailsSubmitBtn.disabled = true;
       profileDetailsSubmitBtn.textContent = "Saving details... 💾";
 
-      const updateLocalDatabase = () => {
-        const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-        const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === session.email.toLowerCase());
-        
-        if (existingIndex > -1) {
-          registeredUsers[existingIndex].name = nameVal;
-          registeredUsers[existingIndex].age = ageVal;
-          registeredUsers[existingIndex].goal = goalVal;
-          registeredUsers[existingIndex].level = levelVal;
-          localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
-        }
+      // Update active session locally
+      session.name = nameVal;
+      session.age = ageVal;
+      session.goal = goalVal;
+      session.level = levelVal;
+      localStorage.setItem('typebuddy_user_session', JSON.stringify(session));
 
-        // Update active session
-        session.name = nameVal;
-        session.goal = goalVal;
-        session.level = levelVal;
-        localStorage.setItem('typebuddy_user_session', JSON.stringify(session));
+      // Sync header state in real-time
+      window.initUserSessionState(session);
 
-        // Sync header state in real-time
-        window.initUserSessionState(session);
-
-        profileDetailsSubmitBtn.disabled = false;
-        profileDetailsSubmitBtn.textContent = "Save Details 💾";
-        if (profileDetailsSuccess) {
-          profileDetailsSuccess.style.display = 'flex';
-          setTimeout(() => {
-            profileDetailsSuccess.style.display = 'none';
-          }, 3000);
-        }
-      };
-
-      const isFirebasePlaceholder = 
-        typeof firebaseConfig === 'undefined' || 
-        firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
-        firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
-
-      if (isFirebasePlaceholder) {
-        updateLocalDatabase();
-        return;
-      }
-
-      try {
-        // Double-check Firestore uniqueness of username
-        const nameQuery = await db.collection("users").where("name", "==", nameVal).get();
-        let nameConflict = false;
-        nameQuery.forEach(doc => {
-          if (doc.data().email.toLowerCase() !== session.email.toLowerCase()) {
-            nameConflict = true;
-          }
-        });
-
-        if (nameConflict) {
-          setProfileDetailsError(profileNameInput, "Username already exists. Please choose a different name.");
-          profileDetailsSubmitBtn.disabled = false;
-          profileDetailsSubmitBtn.textContent = "Save Details 💾";
-          if (profileDetailsError) profileDetailsError.style.display = 'flex';
-          return;
-        }
-
-        const userQuery = await db.collection("users").where("email", "==", session.email).get();
-        if (!userQuery.empty) {
-          const docId = userQuery.docs[0].id;
-          await db.collection("users").doc(docId).update({
-            name: nameVal,
-            age: ageVal,
-            goal: goalVal,
-            level: levelVal
-          });
-        }
-
-        updateLocalDatabase();
-      } catch (error) {
-        console.error("Firestore Update Error:", error);
-        profileDetailsSubmitBtn.disabled = false;
-        profileDetailsSubmitBtn.textContent = "Save Details 💾";
-        alert(`❌ Database error: Unable to update details.\n\nDetails: ${error.message}`);
-      }
-    });
-  }
-
-  // Profile Password Reset Form Submission
-  const profilePasswordForm = document.getElementById('profile-password-form');
-  const profileCurrentPasswordInput = document.getElementById('profile-current-password');
-  const profileNewPasswordInput = document.getElementById('profile-new-password');
-  const profileConfirmPasswordInput = document.getElementById('profile-confirm-password');
-  const profilePasswordSuccess = document.getElementById('profile-password-success');
-  const profilePasswordError = document.getElementById('profile-password-error');
-  const profilePasswordSubmitBtn = document.getElementById('profile-password-submit-btn');
-
-  function clearProfilePasswordErrors() {
-    if (profilePasswordError) profilePasswordError.style.display = 'none';
-    if (profilePasswordSuccess) profilePasswordSuccess.style.display = 'none';
-    document.querySelectorAll('#profile-view #profile-password-form .input-group').forEach(group => {
-      group.classList.remove('invalid');
-    });
-    document.querySelectorAll('#profile-view #profile-password-form .validation-message').forEach(span => {
-      span.textContent = "";
-    });
-  }
-
-  function setProfilePasswordError(inputEl, message) {
-    const group = inputEl.closest('.input-group');
-    if (group) {
-      group.classList.add('invalid');
-      const errorSpan = group.querySelector('.validation-message');
-      if (errorSpan) {
-        errorSpan.textContent = message;
-      }
-    }
-  }
-
-  if (profilePasswordForm) {
-    profilePasswordForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      clearProfilePasswordErrors();
-
-      const session = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-      if (!session) return;
-
-      let isValid = true;
-      const currentPasswordVal = profileCurrentPasswordInput.value;
-      const newPasswordVal = profileNewPasswordInput.value;
-      const confirmPasswordVal = profileConfirmPasswordInput.value;
-
-      // 1. Verify old password
-      const registeredUsers = JSON.parse(localStorage.getItem('typebuddy_registered_users') || '[]');
-      const adminAccounts = JSON.parse(localStorage.getItem('typebuddy_admin_accounts') || '[]');
-
-      let correctPassword = "";
-      if (session.isAdmin) {
-        const admin = adminAccounts.find(a => a.email.toLowerCase() === session.email.toLowerCase());
-        if (admin) {
-          correctPassword = admin.password;
-        }
-      } else {
-        const user = registeredUsers.find(u => u.email.toLowerCase() === session.email.toLowerCase());
-        if (user) {
-          correctPassword = user.password;
-        }
-      }
-
-      if (!currentPasswordVal) {
-        setProfilePasswordError(profileCurrentPasswordInput, "Current password is required.");
-        isValid = false;
-      } else if (currentPasswordVal !== correctPassword) {
-        setProfilePasswordError(profileCurrentPasswordInput, "Incorrect current password.");
-        isValid = false;
-      }
-
-      // 2. Validate new password
-      if (!newPasswordVal) {
-        setProfilePasswordError(profileNewPasswordInput, "New password is required.");
-        isValid = false;
-      } else if (newPasswordVal.length < 6) {
-        setProfilePasswordError(profileNewPasswordInput, "Password must be at least 6 characters.");
-        isValid = false;
-      }
-
-      // 3. Confirm new password
-      if (!confirmPasswordVal) {
-        setProfilePasswordError(profileConfirmPasswordInput, "Please confirm your new password.");
-        isValid = false;
-      } else if (confirmPasswordVal !== newPasswordVal) {
-        setProfilePasswordError(profileConfirmPasswordInput, "Passwords do not match.");
-        isValid = false;
-      }
-
-      if (!isValid) {
-        if (profilePasswordError) {
-          profilePasswordError.style.display = 'flex';
-        }
-        return;
-      }
-
-      profilePasswordSubmitBtn.disabled = true;
-      profilePasswordSubmitBtn.textContent = "Updating password... ⏳";
-
-      const updateLocalPassword = () => {
-        if (session.isAdmin) {
-          const matchingAdminIndex = adminAccounts.findIndex(a => a.email.toLowerCase() === session.email.toLowerCase());
-          if (matchingAdminIndex > -1) {
-            adminAccounts[matchingAdminIndex].password = newPasswordVal;
-            localStorage.setItem('typebuddy_admin_accounts', JSON.stringify(adminAccounts));
-          }
-        }
-        
-        // Also update in user registry regardless of admin status
-        const existingIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === session.email.toLowerCase());
-        if (existingIndex > -1) {
-          registeredUsers[existingIndex].password = newPasswordVal;
-          localStorage.setItem('typebuddy_registered_users', JSON.stringify(registeredUsers));
-        }
-
-        profilePasswordSubmitBtn.disabled = false;
-        profilePasswordSubmitBtn.textContent = "Reset Password 🔒";
-        
-        // Clear fields
-        profileCurrentPasswordInput.value = "";
-        profileNewPasswordInput.value = "";
-        profileConfirmPasswordInput.value = "";
-
-        if (profilePasswordSuccess) {
-          profilePasswordSuccess.style.display = 'flex';
-          setTimeout(() => {
-            profilePasswordSuccess.style.display = 'none';
-          }, 3000);
-        }
-      };
-
-      const isFirebasePlaceholder = 
-        typeof firebaseConfig === 'undefined' || 
-        firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") ||
-        firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE");
-
-      if (isFirebasePlaceholder) {
-        updateLocalPassword();
-        return;
-      }
-
-      try {
-        const userQuery = await db.collection("users").where("email", "==", session.email).get();
-        if (!userQuery.empty) {
-          const docId = userQuery.docs[0].id;
-          await db.collection("users").doc(docId).update({
-            password: newPasswordVal
-          });
-        }
-        updateLocalPassword();
-      } catch (error) {
-        console.error("Firestore Password Update Error:", error);
-        profilePasswordSubmitBtn.disabled = false;
-        profilePasswordSubmitBtn.textContent = "Reset Password 🔒";
-        alert(`❌ Database error: Unable to reset password.\n\nDetails: ${error.message}`);
+      profileDetailsSubmitBtn.disabled = false;
+      profileDetailsSubmitBtn.textContent = "Save Details 💾";
+      if (profileDetailsSuccess) {
+        profileDetailsSuccess.style.display = 'flex';
+        setTimeout(() => {
+          profileDetailsSuccess.style.display = 'none';
+        }, 3000);
       }
     });
   }
