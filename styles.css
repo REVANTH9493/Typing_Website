@@ -2087,7 +2087,7 @@ main {
   white-space: nowrap;
 }
 
-/* Responsive queries */
+/* Responsive queries for Sign In & Sign Up */
 @media (max-width: 900px) {
   #signin-view, #signup-view {
     overflow-y: auto;
@@ -2099,7 +2099,6 @@ main {
   }
   
   .signin-wrapper {
-    flex-direction: column;
     width: 100%;
     max-width: 100%;
     height: auto;
@@ -2107,53 +2106,30 @@ main {
     max-height: none;
     border-radius: 0;
     border: none;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    box-shadow: none;
-    animation: none;
-  }
-  
-  .signin-left {
-    padding: 30px 20px;
-    flex: none;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  
-  .signin-left .animation-container {
-    max-width: 400px;
-    margin: 0 auto;
-  }
-  
-  .signin-right {
-    padding: 30px 20px;
-    flex: none;
-    height: auto;
-    max-height: none;
-    overflow-y: visible;
-  }
-}
-
-@media (max-width: 480px) {
-  .signin-left {
-    display: none;
-  }
-  
-  .signin-wrapper {
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    min-height: 100vh;
+    box-shadow: none;
+    animation: none;
+    padding: 24px 16px;
+    display: flex;
     justify-content: center;
-    padding: 16px;
+    align-items: center;
+  }
+  
+  .signin-left {
+    display: none;
   }
   
   .signin-right {
     background: transparent;
     padding: 0;
     width: 100%;
+    max-width: 480px;
+    flex: none;
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
   }
   
   .form-container {
@@ -2165,4 +2141,382 @@ main {
     width: 100%;
   }
 }
+
+/* ==========================================
+   TYPEBUDDY RESPONSIVE BREAKPOINTS & STYLES
+   ========================================== */
+
+/* Hamburger Menu Button */
+.hamburger-menu {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 26px;
+  height: 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 100;
+  padding: 0;
+  outline: none;
+}
+
+.hamburger-menu span {
+  width: 100%;
+  height: 3px;
+  background-color: var(--text-main);
+  border-radius: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hamburger-menu.active span:nth-child(1) {
+  transform: translateY(7.5px) rotate(45deg);
+  background-color: var(--text-main);
+}
+.hamburger-menu.active span:nth-child(2) {
+  opacity: 0;
+}
+.hamburger-menu.active span:nth-child(3) {
+  transform: translateY(-7.5px) rotate(-45deg);
+  background-color: var(--text-main);
+}
+
+/* Desktop visualization class styling */
+.tutor-visual-grid {
+  display: grid;
+  grid-template-columns: 1.85fr 1fr;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+
+/* 1. Breakpoint for large mobile / tablets (900px) */
+@media (max-width: 900px) {
+  header {
+    padding: 20px 24px;
+  }
+  
+  .hamburger-menu {
+    display: flex;
+  }
+  
+  /* Slide out drawer styles */
+  .nav-controls {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 290px;
+    height: 100vh;
+    background: var(--card-bg);
+    border-left: 1.5px solid var(--card-border);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    padding: 90px 24px 40px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 16px;
+    transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 99;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
+    overflow-y: auto;
+  }
+  
+  .nav-controls.active {
+    right: 0;
+  }
+  
+  .nav-controls .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px;
+  }
+  
+  .nav-controls .glass-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px !important;
+    gap: 12px !important;
+    box-shadow: none !important;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+  }
+  
+  /* Welcome View Grid Stacking */
+  .welcome-container {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 32px;
+    min-height: auto;
+    padding-top: 10px;
+  }
+  
+  .welcome-info h1 {
+    font-size: 3rem;
+  }
+  
+  .welcome-info p {
+    font-size: 1.15rem;
+    margin-bottom: 24px;
+  }
+  
+  .mode-selector {
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  
+  .mode-card {
+    text-align: left;
+    padding: 20px;
+  }
+  
+  /* Games Grid Stacking */
+  .game-setup {
+    flex-direction: column;
+    gap: 20px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
+
+/* 2. Breakpoint for screen size layout stacking in Tutor visual grid (1024px) */
+@media (max-width: 1024px) {
+  .tutor-visual-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  
+  .hands-container {
+    max-width: 320px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  
+  .keyboard-container {
+    width: 100%;
+  }
+}
+
+/* 3. Breakpoint for tablets / larger mobile (768px) */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    text-align: left;
+  }
+  
+  .dashboard-map::before,
+  .dashboard-map-line-active {
+    left: 32px;
+  }
+  
+  .dashboard-map-monkey {
+    left: 18px;
+  }
+  
+  .level-title {
+    margin-left: 55px;
+    font-size: 1.3rem;
+  }
+  
+  .lessons-grid {
+    padding-left: 55px;
+    gap: 15px;
+  }
+  
+  .lesson-card {
+    padding: 16px;
+  }
+  
+  /* Certificate View Scaling */
+  .certificate-paper {
+    transform: scale(0.8);
+    transform-origin: center top;
+  }
+  
+  .certificate-container {
+    height: 480px;
+  }
+  
+  .cert-btn-group {
+    margin-top: -50px;
+  }
+}
+
+/* 4. Breakpoint for medium mobile devices (640px) */
+@media (max-width: 640px) {
+  /* Scale down base layout typography sizes */
+  html {
+    font-size: 12.5px;
+  }
+  
+  header .logo-text {
+    font-size: 1.8rem;
+  }
+  
+  header img {
+    height: 32px !important;
+  }
+  
+  /* Tutor view adaptations */
+  .stats-header-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 14px;
+  }
+  
+  .stat-val {
+    font-size: 1.5rem;
+  }
+  
+  .typing-box-container {
+    height: 260px;
+    padding: 16px 20px;
+  }
+  
+  .typing-text {
+    font-size: 1.5rem;
+    line-height: 1.8;
+  }
+  
+  /* Responsive Keyboard Key Shrinkage */
+  .key {
+    height: 38px;
+    min-width: 32px;
+    margin: 0 2px;
+    font-size: 0.82rem;
+    border-bottom-width: 2px;
+  }
+  
+  .key.space { width: 220px; }
+  .key.shift { min-width: 50px; }
+  .key.backspace { min-width: 50px; }
+  .key.tab { min-width: 40px; }
+  .key.caps { min-width: 45px; }
+  .key.enter { min-width: 50px; }
+  
+  /* Certificate View Scaling */
+  .certificate-paper {
+    transform: scale(0.65);
+    transform-origin: center top;
+  }
+  
+  .certificate-container {
+    height: 400px;
+  }
+  
+  .cert-btn-group {
+    margin-top: -90px;
+  }
+}
+
+/* 5. Breakpoint for tiny mobile devices (480px) */
+@media (max-width: 480px) {
+  html {
+    font-size: 11.5px;
+  }
+  
+  main {
+    padding: 8px 12px 30px;
+  }
+  
+  /* Welcome header title scale */
+  .welcome-info h1 {
+    font-size: 2.4rem;
+  }
+  
+  .welcome-info p {
+    font-size: 1.05rem;
+  }
+  
+  /* Dashboard layout map spacing */
+  .dashboard-map::before,
+  .dashboard-map-line-active {
+    left: 22px;
+  }
+  
+  .dashboard-map-monkey {
+    left: 8px;
+  }
+  
+  .level-title {
+    margin-left: 42px;
+    font-size: 1.15rem;
+  }
+  
+  .lessons-grid {
+    padding-left: 42px;
+    gap: 12px;
+  }
+  
+  .lesson-card {
+    padding: 14px;
+  }
+  
+  /* Keyboard keys ultra-shrinkage */
+  .key {
+    height: 30px;
+    min-width: 23px;
+    margin: 0 1.5px;
+    font-size: 0.72rem;
+    border-radius: 4px;
+  }
+  
+  .key.space { width: 140px; }
+  .key.shift { min-width: 36px; }
+  .key.backspace { min-width: 36px; }
+  .key.tab { min-width: 28px; }
+  .key.caps { min-width: 32px; }
+  .key.enter { min-width: 36px; }
+  
+  /* Hands shrink */
+  .hand-svg {
+    width: 90px;
+    height: 90px;
+  }
+  
+  .hands-container {
+    gap: 20px;
+    padding: 8px;
+  }
+  
+  /* Certificate View Scaling */
+  .certificate-paper {
+    transform: scale(0.44);
+    transform-origin: center top;
+    border-width: 8px !important;
+    padding: 12px 20px !important;
+  }
+  
+  .certificate-container {
+    height: 280px;
+  }
+  
+  .cert-btn-group {
+    margin-top: -190px;
+  }
+  
+  .cert-params-container {
+    gap: 12px;
+    padding: 6px 12px;
+  }
+  
+  .cert-gold-seal {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .cert-gold-seal::before {
+    width: 42px;
+    height: 42px;
+  }
+  
+  .cert-gold-seal-star {
+    font-size: 14px;
+  }
+}
+
 
