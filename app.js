@@ -1136,7 +1136,7 @@ const Router = {
 
     // Check if logged in user is admin
     const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-    const isAdmin = userSession && userSession.isAdmin === true;
+    const isAdmin = userSession && (userSession.isAdmin === true || userSession.isAdmin === 'true');
 
     // Determine the next lesson ID to be done
     let nextLessonId = null;
@@ -1262,7 +1262,7 @@ const Router = {
 
   updateCertificateAvailability() {
     const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-    const isAdmin = userSession && userSession.isAdmin === true;
+    const isAdmin = userSession && (userSession.isAdmin === true || userSession.isAdmin === 'true');
 
     // Check if at least 10 lessons (levels 1-10) are completed
     let completedLevelsCount = 0;
@@ -1315,7 +1315,7 @@ const Router = {
       avgWpm = Math.round(totalWpm / history.length);
     } else {
       const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-      const isAdmin = userSession && userSession.isAdmin === true;
+      const isAdmin = userSession && (userSession.isAdmin === true || userSession.isAdmin === 'true');
       if (isAdmin) {
         avgWpm = 45; // Default admin speed seed if history is empty
       }
@@ -2224,7 +2224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const adminPanelBtn = document.getElementById('admin-panel-btn');
     if (adminPanelBtn) {
-      adminPanelBtn.style.display = sessionData.isAdmin ? 'flex' : 'none';
+      adminPanelBtn.style.display = (sessionData.isAdmin === true || sessionData.isAdmin === 'true') ? 'flex' : 'none';
     }
 
     AppState.loadProgress();
@@ -2236,7 +2236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.initUserSessionState(userSession);
   }
 
-  if (userSession && userSession.isAdmin === true) {
+  if (userSession && (userSession.isAdmin === true || userSession.isAdmin === 'true')) {
     const adminPanelBtn = document.getElementById('admin-panel-btn');
     if (adminPanelBtn) {
       adminPanelBtn.style.display = 'flex';
@@ -2552,7 +2552,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (certShowBtn && nameInput) {
     certShowBtn.addEventListener('click', () => {
       const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-      const isAdmin = userSession && userSession.isAdmin === true;
+      const isAdmin = userSession && (userSession.isAdmin === true || userSession.isAdmin === 'true');
 
       let completedLevelsCount = 0;
       for (let i = 1; i <= 10; i++) {
@@ -2622,7 +2622,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (certTriggerBtn) {
     certTriggerBtn.addEventListener('click', () => {
       const userSession = JSON.parse(localStorage.getItem('typebuddy_user_session'));
-      const isAdmin = userSession && userSession.isAdmin === true;
+      const isAdmin = userSession && (userSession.isAdmin === true || userSession.isAdmin === 'true');
 
       let completedLevelsCount = 0;
       for (let i = 1; i <= 10; i++) {
